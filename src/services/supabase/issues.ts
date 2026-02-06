@@ -1,5 +1,5 @@
 // Issues Service - CRUD operations for issues
-import { supabase, shouldUseMockData } from './client';
+import { supabase } from './client';
 import type { 
   Issue, 
   IssueWithKey, 
@@ -8,47 +8,6 @@ import type {
   IssueStatus,
   Priority
 } from '@/types';
-
-// Mock data for development
-const mockIssues: Issue[] = [
-  {
-    id: '1',
-    project_id: 'proj-1',
-    sequence_id: 1,
-    title: 'Implement Auth Flow',
-    description: 'Set up authentication with Supabase Auth',
-    status: 'in_progress',
-    priority: 'high',
-    assignee_id: 'user-1',
-    archived: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    project_id: 'proj-1',
-    sequence_id: 2,
-    title: 'Create Dashboard Components',
-    description: 'Build the main dashboard UI components',
-    status: 'todo',
-    priority: 'medium',
-    archived: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    project_id: 'proj-1',
-    sequence_id: 3,
-    title: 'Set up CI/CD Pipeline',
-    description: 'Configure GitHub Actions for automated deployment',
-    status: 'backlog',
-    priority: 'low',
-    archived: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
 
 export interface IssueFilters {
   status?: IssueStatus[];
@@ -65,31 +24,6 @@ export async function getIssues(
   projectId: string, 
   filters: IssueFilters = {}
 ): Promise<IssueWithKey[]> {
-  if (shouldUseMockData(projectId)) {
-    // Return mock data with keys
-    let filtered = mockIssues.filter(i => i.project_id === projectId || projectId === 'proj-1');
-    
-    if (filters.status?.length) {
-      filtered = filtered.filter(i => filters.status!.includes(i.status));
-    }
-    if (filters.priority?.length) {
-      filtered = filtered.filter(i => filters.priority!.includes(i.priority));
-    }
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      filtered = filtered.filter(i => 
-        i.title.toLowerCase().includes(search) ||
-        i.description?.toLowerCase().includes(search)
-      );
-    }
-    
-    return filtered.map(i => ({
-      ...i,
-      key: `VAN-${String(i.sequence_id).padStart(3, '0')}`
-    }));
-  }
-
-  // Simplified query - joins with profiles instead of auth.users
   const query = supabase
     .from('issues')
     .select('*')
@@ -137,15 +71,6 @@ export async function getIssues(
 
 // Get single issue by ID
 export async function getIssueById(issueId: string): Promise<IssueWithKey | null> {
-  if (shouldUseMockData()) {
-    const issue = mockIssues.find(i => i.id === issueId);
-    if (!issue) return null;
-    return {
-      ...issue,
-      key: `VAN-${String(issue.sequence_id).padStart(3, '0')}`
-    };
-  }
-
   const { data, error } = await supabase
     .from('issues')
     .select('*')
@@ -171,32 +96,6 @@ export async function getIssueById(issueId: string): Promise<IssueWithKey | null
 
 // Create issue
 export async function createIssue(payload: CreateIssuePayload): Promise<IssueWithKey> {
-  if (shouldUseMockData(payload.project_id)) {
-    const newIssue: Issue = {
-      id: String(mockIssues.length + 1),
-      project_id: payload.project_id,
-      sequence_id: mockIssues.length + 1,
-      title: payload.title,
-      description: payload.description,
-      status: payload.status || 'backlog',
-      priority: payload.priority || 'medium',
-      assignee_id: payload.assignee_id,
-      sprint_id: payload.sprint_id,
-      module_id: payload.module_id,
-      parent_id: payload.parent_id,
-      estimate_points: payload.estimate_points,
-      due_date: payload.due_date,
-      archived: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    mockIssues.push(newIssue);
-    return {
-      ...newIssue,
-      key: `VAN-${String(newIssue.sequence_id).padStart(3, '0')}`
-    };
-  }
-
   const { label_ids, ...issueData } = payload;
 
   const { data, error } = await supabase
@@ -206,19 +105,20 @@ export async function createIssue(payload: CreateIssuePayload): Promise<IssueWit
     .single();
 
   if (error) throw error;
-
+  
   const issue = data as Issue;
 
   // Add labels if provided
   if (label_ids?.length) {
     await supabase
       .from('issue_labels')
-      .insert(label_ids.map(label_id => ({
+      .insert(label_ids.map(labelId => ({
         issue_id: issue.id,
-        label_id
+        label_id: labelId
       })));
   }
 
+  // Get project key
   const { data: project } = await supabase
     .from('projects')
     .select('key')
@@ -236,33 +136,11 @@ export async function updateIssue(
   issueId: string, 
   payload: UpdateIssuePayload
 ): Promise<IssueWithKey> {
-  if (shouldUseMockData()) {
-    const index = mockIssues.findIndex(i => i.id === issueId);
-    if (index === -1) throw new Error('Issue not found');
-    
-    // Convert null values to undefined for mock
-    const cleanPayload: Partial<Issue> = {};
-    for (const [key, value] of Object.entries(payload)) {
-      if (value !== null) {
-        (cleanPayload as Record<string, unknown>)[key] = value;
-      }
-    }
-    
-    mockIssues[index] = {
-      ...mockIssues[index],
-      ...cleanPayload,
-      updated_at: new Date().toISOString(),
-    };
-    
-    return {
-      ...mockIssues[index],
-      key: `VAN-${String(mockIssues[index].sequence_id).padStart(3, '0')}`
-    };
-  }
+  const { label_ids, ...issueData } = payload;
 
   const { data, error } = await supabase
     .from('issues')
-    .update(payload)
+    .update(issueData)
     .eq('id', issueId)
     .select()
     .single();
@@ -271,6 +149,26 @@ export async function updateIssue(
 
   const issue = data as Issue;
 
+  // Update labels if provided
+  if (label_ids !== undefined) {
+    // Remove existing labels
+    await supabase
+      .from('issue_labels')
+      .delete()
+      .eq('issue_id', issueId);
+
+    // Add new labels
+    if (label_ids.length > 0) {
+      await supabase
+        .from('issue_labels')
+        .insert(label_ids.map(labelId => ({
+          issue_id: issueId,
+          label_id: labelId
+        })));
+    }
+  }
+
+  // Get project key
   const { data: project } = await supabase
     .from('projects')
     .select('key')
@@ -285,14 +183,6 @@ export async function updateIssue(
 
 // Delete issue (soft delete)
 export async function deleteIssue(issueId: string): Promise<void> {
-  if (shouldUseMockData()) {
-    const index = mockIssues.findIndex(i => i.id === issueId);
-    if (index !== -1) {
-      mockIssues[index].archived = true;
-    }
-    return;
-  }
-
   await supabase
     .from('issues')
     .update({ archived: true })
