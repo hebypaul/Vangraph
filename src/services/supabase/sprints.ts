@@ -1,29 +1,9 @@
 // Sprints Service
-import { supabase, isSupabaseConfigured } from './client';
-import type { Sprint, SprintStatus, SprintProgress, BurndownPoint } from '@/types';
-
-// Mock data
-const mockSprints: Sprint[] = [
-  {
-    id: 'sprint-1',
-    project_id: 'proj-1',
-    name: 'Sprint 1',
-    description: 'Initial development sprint',
-    start_date: '2026-02-01',
-    end_date: '2026-02-14',
-    velocity_target: 20,
-    status: 'active',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
+import { supabase } from './client';
+import type { Sprint, SprintProgress, BurndownPoint } from '@/types';
 
 // Get active sprint for project
 export async function getActiveSprint(projectId: string): Promise<Sprint | null> {
-  if (!isSupabaseConfigured()) {
-    return mockSprints.find(s => s.project_id === projectId && s.status === 'active') || null;
-  }
-
   const { data, error } = await supabase
     .from('sprints')
     .select('*')
@@ -37,10 +17,6 @@ export async function getActiveSprint(projectId: string): Promise<Sprint | null>
 
 // Get all sprints for project
 export async function getSprints(projectId: string): Promise<Sprint[]> {
-  if (!isSupabaseConfigured()) {
-    return mockSprints.filter(s => s.project_id === projectId);
-  }
-
   const { data, error } = await supabase
     .from('sprints')
     .select('*')
@@ -53,17 +29,6 @@ export async function getSprints(projectId: string): Promise<Sprint[]> {
 
 // Create sprint
 export async function createSprint(payload: Omit<Sprint, 'id' | 'created_at' | 'updated_at'>): Promise<Sprint> {
-  if (!isSupabaseConfigured()) {
-    const newSprint: Sprint = {
-      id: `sprint-${mockSprints.length + 1}`,
-      ...payload,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    mockSprints.push(newSprint);
-    return newSprint;
-  }
-
   const { data, error } = await supabase
     .from('sprints')
     .insert(payload)
@@ -79,18 +44,6 @@ export async function updateSprint(
   sprintId: string, 
   payload: Partial<Sprint>
 ): Promise<Sprint> {
-  if (!isSupabaseConfigured()) {
-    const index = mockSprints.findIndex(s => s.id === sprintId);
-    if (index === -1) throw new Error('Sprint not found');
-    
-    mockSprints[index] = {
-      ...mockSprints[index],
-      ...payload,
-      updated_at: new Date().toISOString(),
-    };
-    return mockSprints[index];
-  }
-
   const { data, error } = await supabase
     .from('sprints')
     .update(payload)
@@ -120,28 +73,50 @@ export async function completeSprint(sprintId: string): Promise<Sprint> {
 
 // Get sprint progress (burndown)
 export async function getSprintProgress(sprintId: string): Promise<SprintProgress> {
-  const sprint = mockSprints.find(s => s.id === sprintId) || mockSprints[0];
-  
-  // Mock burndown data
-  const totalPoints = 20;
-  const completedPoints = 8;
+  // Get sprint
+  const { data: sprint, error } = await supabase
+    .from('sprints')
+    .select('*')
+    .eq('id', sprintId)
+    .single();
+
+  if (error) throw error;
+
+  // Get issues for this sprint
+  const { data: issues } = await supabase
+    .from('issues')
+    .select('status, estimate_points')
+    .eq('sprint_id', sprintId)
+    .eq('archived', false);
+
+  const totalPoints = issues?.reduce((sum, i) => sum + (i.estimate_points || 0), 0) || 0;
+  const completedPoints = issues?.filter(i => i.status === 'done')
+    .reduce((sum, i) => sum + (i.estimate_points || 0), 0) || 0;
   const remainingPoints = totalPoints - completedPoints;
   
-  // Generate mock burndown
+  // For now, simple burndown (can be enhanced with daily tracking later)
+  const startDate = new Date(sprint.start_date);
+  const endDate = new Date(sprint.end_date);
+  const today = new Date();
+  
   const burndown: BurndownPoint[] = [
-    { date: '2026-02-01', remaining: 20 },
-    { date: '2026-02-03', remaining: 18 },
-    { date: '2026-02-05', remaining: 15 },
-    { date: '2026-02-07', remaining: 12 },
+    { date: sprint.start_date, remaining: totalPoints },
+    { date: today.toISOString().split('T')[0], remaining: remainingPoints },
   ];
   
   // Ideal burndown
-  const ideal: BurndownPoint[] = [
-    { date: '2026-02-01', remaining: 20 },
-    { date: '2026-02-05', remaining: 13 },
-    { date: '2026-02-10', remaining: 7 },
-    { date: '2026-02-14', remaining: 0 },
-  ];
+  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const pointsPerDay = totalPoints / totalDays;
+  
+  const ideal: BurndownPoint[] = [];
+  for (let i = 0; i <= totalDays; i += Math.ceil(totalDays / 4)) {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + i);
+    ideal.push({
+      date: date.toISOString().split('T')[0],
+      remaining: Math.max(0, Math.round(totalPoints - (pointsPerDay * i)))
+    });
+  }
   
   return {
     sprint,

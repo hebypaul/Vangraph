@@ -1,9 +1,6 @@
 // Reasoning Logs Service - Agent thought audit trail
-import { supabase, isSupabaseConfigured } from './client';
+import { supabase } from './client';
 import type { ReasoningLog, ThoughtStep } from '@/types';
-
-// Mock data
-const mockLogs: ReasoningLog[] = [];
 
 // Create reasoning log
 export async function createReasoningLog(payload: {
@@ -15,16 +12,6 @@ export async function createReasoningLog(payload: {
   token_usage?: number;
   cost_usd?: number;
 }): Promise<ReasoningLog> {
-  if (!isSupabaseConfigured()) {
-    const newLog: ReasoningLog = {
-      id: String(mockLogs.length + 1),
-      ...payload,
-      started_at: new Date().toISOString(),
-    };
-    mockLogs.push(newLog);
-    return newLog;
-  }
-
   const { data, error } = await supabase
     .from('reasoning_logs')
     .insert(payload)
@@ -37,10 +24,6 @@ export async function createReasoningLog(payload: {
 
 // Get reasoning logs for issue
 export async function getReasoningLogsByIssue(issueId: string): Promise<ReasoningLog[]> {
-  if (!isSupabaseConfigured()) {
-    return mockLogs.filter(l => l.issue_id === issueId);
-  }
-
   const { data, error } = await supabase
     .from('reasoning_logs')
     .select('*')
@@ -56,14 +39,6 @@ export async function getRecentReasoningTrace(
   threadId: string, 
   limit: number = 3
 ): Promise<ThoughtStep[]> {
-  if (!isSupabaseConfigured()) {
-    const logs = mockLogs
-      .filter(l => l.thread_id === threadId)
-      .slice(0, limit);
-    
-    return logs.flatMap(l => l.thought_chain).slice(0, limit * 3);
-  }
-
   const { data, error } = await supabase
     .from('reasoning_logs')
     .select('thought_chain')
@@ -81,20 +56,6 @@ export async function completeReasoningLog(
   logId: string,
   additionalSteps?: ThoughtStep[]
 ): Promise<ReasoningLog> {
-  if (!isSupabaseConfigured()) {
-    const log = mockLogs.find(l => l.id === logId);
-    if (!log) throw new Error('Log not found');
-    
-    log.completed_at = new Date().toISOString();
-    log.duration_ms = new Date(log.completed_at).getTime() - new Date(log.started_at).getTime();
-    
-    if (additionalSteps) {
-      log.thought_chain = [...log.thought_chain, ...additionalSteps];
-    }
-    
-    return log;
-  }
-
   const startedAt = await supabase
     .from('reasoning_logs')
     .select('started_at, thought_chain')
@@ -130,14 +91,6 @@ export async function getTokenUsageStats(projectId: string): Promise<{
   total_cost_usd: number;
   logs_count: number;
 }> {
-  if (!isSupabaseConfigured()) {
-    return {
-      total_tokens: mockLogs.reduce((acc, l) => acc + (l.token_usage || 0), 0),
-      total_cost_usd: mockLogs.reduce((acc, l) => acc + (l.cost_usd || 0), 0),
-      logs_count: mockLogs.length,
-    };
-  }
-
   const { data, error } = await supabase
     .from('reasoning_logs')
     .select('token_usage, cost_usd')

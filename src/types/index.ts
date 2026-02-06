@@ -374,6 +374,7 @@ export interface UpdateIssuePayload {
   module_id?: string | null;
   estimate_points?: number | null;
   due_date?: string | null;
+  label_ids?: string[];
 }
 
 export interface CreateSpecPayload {

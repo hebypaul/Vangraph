@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { TaskCardBase } from "@/components/tambo/task-card";
@@ -13,149 +13,125 @@ import { Input } from "@/components/atomic/input/Input";
 import { TextArea } from "@/components/atomic/input/TextArea";
 import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/atomic/overlay/Dropdown";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/atomic/feedback/Skeleton";
 import {
   Plus,
   Filter,
   LayoutGrid,
   List,
-  SlidersHorizontal,
 } from "lucide-react";
 
-// Mock data for the board - would come from getIssuesByStatus service
-const initialColumns = [
-  {
-    id: "backlog",
-    title: "BACKLOG",
-    tasks: [
-      {
-        id: "VA-102",
-        title: "Research competitors for QA flow",
-        description: "Analyze competitor testing workflows and automation strategies",
-        status: "backlog" as const,
-        priority: "medium" as const,
-        assignees: ["QA"],
-        comments: 2,
-      },
-      {
-        id: "VA-105",
-        title: "Update dependency list for modules",
-        description: "Review and update all module dependencies",
-        status: "backlog" as const,
-        priority: "low" as const,
-        assignees: ["AR"],
-        comments: 1,
-      },
-      {
-        id: "VA-108",
-        title: "Design notification system",
-        description: "Create notification architecture for real-time updates",
-        status: "backlog" as const,
-        priority: "high" as const,
-        assignees: ["JD"],
-        comments: 0,
-      },
-    ],
-  },
-  {
-    id: "in-progress",
-    title: "IN PROGRESS",
-    tasks: [
-      {
-        id: "VA-089",
-        title: "Implement Auth Flow",
-        description: "Complete the backend integration with JWT authentication and set up the session management",
-        status: "in-progress" as const,
-        priority: "high" as const,
-        assignees: ["JD", "AR"],
-        comments: 5,
-      },
-      {
-        id: "VA-091",
-        title: "Build dashboard components",
-        description: "Create reusable dashboard widgets",
-        status: "in-progress" as const,
-        priority: "medium" as const,
-        assignees: ["BS"],
-        comments: 3,
-      },
-    ],
-  },
-  {
-    id: "review",
-    title: "REVIEW",
-    tasks: [
-      {
-        id: "VA-099",
-        title: "Database Schema Migration",
-        description: "Migrate database schema to support new user roles",
-        status: "review" as const,
-        priority: "high" as const,
-        assignees: ["AR"],
-        comments: 3,
-      },
-    ],
-  },
-  {
-    id: "done",
-    title: "DONE",
-    tasks: [
-      {
-        id: "VA-085",
-        title: "Setup project structure",
-        description: "Initialize Next.js project with Tambo integration",
-        status: "done" as const,
-        priority: "high" as const,
-        assignees: ["JD"],
-        comments: 2,
-      },
-      {
-        id: "VA-086",
-        title: "Configure Supabase",
-        description: "Set up Supabase project and database tables",
-        status: "done" as const,
-        priority: "medium" as const,
-        assignees: ["AR"],
-        comments: 1,
-      },
-    ],
-  },
+// Import services
+import { getIssuesByStatus, createIssue } from "@/services/supabase/issues";
+import { DEFAULT_PROJECT_ID } from "@/lib/constants";
+import type { IssueWithKey, IssueStatus, Priority } from "@/types";
+
+// Column configuration
+const COLUMNS: { id: IssueStatus; title: string }[] = [
+  { id: "backlog", title: "BACKLOG" },
+  { id: "todo", title: "TODO" },
+  { id: "in_progress", title: "IN PROGRESS" },
+  { id: "in_review", title: "REVIEW" },
+  { id: "done", title: "DONE" },
 ];
 
+const columnColors: Record<string, string> = {
+  backlog: "bg-muted-foreground",
+  todo: "bg-slate-400",
+  in_progress: "bg-vg-primary",
+  in_review: "bg-vg-warning",
+  done: "bg-vg-success",
+  cancelled: "bg-vg-danger",
+};
+
+// Mock agents data
 const agents = [
   { name: "Coder Agent", type: "coder" as const, status: "active" as const },
   { name: "QA Agent", type: "qa" as const, status: "idle" as const },
   { name: "Architect Agent", type: "architect" as const, status: "reviewing" as const },
 ];
 
-const columnColors: Record<string, string> = {
-  backlog: "bg-muted-foreground",
-  "in-progress": "bg-vg-primary",
-  review: "bg-vg-warning",
-  done: "bg-vg-success",
-};
-
 export default function BoardPage() {
-  const [columns] = useState(initialColumns);
+  const [issues, setIssues] = useState<Record<IssueStatus, IssueWithKey[]> | null>(null);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  
+  // Form state
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState<Priority>("medium");
+  const [isCreating, setIsCreating] = useState(false);
 
-  // Filter tasks based on search
-  const filteredColumns = columns.map((column) => ({
-    ...column,
-    tasks: column.tasks.filter(
+  // Fetch issues on mount
+  useEffect(() => {
+    loadIssues();
+  }, []);
+
+  const loadIssues = async () => {
+    setLoading(true);
+    try {
+      const data = await getIssuesByStatus(DEFAULT_PROJECT_ID);
+      setIssues(data);
+    } catch (error) {
+      console.error("Failed to load issues:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle create task
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim()) return;
+    
+    setIsCreating(true);
+    try {
+      await createIssue({
+        project_id: DEFAULT_PROJECT_ID,
+        title: newTaskTitle,
+        description: newTaskDescription,
+        priority: newTaskPriority,
+        status: "backlog",
+      });
+      
+      // Refresh issues
+      await loadIssues();
+      
+      // Reset form
+      setNewTaskTitle("");
+      setNewTaskDescription("");
+      setNewTaskPriority("medium");
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      console.error("Failed to create task:", error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Filter issues by search
+  const getFilteredTasks = (columnId: IssueStatus): IssueWithKey[] => {
+    if (!issues) return [];
+    const columnTasks = issues[columnId] || [];
+    if (!searchQuery) return columnTasks;
+    
+    return columnTasks.filter(
       (task) =>
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.id.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
-  }));
+        task.key.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
 
-  const totalTasks = columns.reduce((acc, col) => acc + col.tasks.length, 0);
+  const totalTasks = issues 
+    ? Object.values(issues).reduce((acc, tasks) => acc + tasks.length, 0) 
+    : 0;
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
-      <div className="flex-1 ml-[var(--sidebar-width)] flex flex-col">
+      <div className="flex-1 ml-(--sidebar-width) flex flex-col">
         <Header projectName="Vangraph" sprintName="Sprint 1" />
 
         <main className="flex-1 p-6 overflow-auto">
@@ -183,7 +159,9 @@ export default function BoardPage() {
                 <DropdownSeparator />
                 <DropdownItem onClick={() => {}}>Clear Filters</DropdownItem>
               </Dropdown>
-              <Badge variant="default">{totalTasks} tasks</Badge>
+              <Badge variant="default">
+                {loading ? "..." : `${totalTasks} tasks`}
+              </Badge>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center border border-border rounded-lg overflow-hidden">
@@ -233,45 +211,65 @@ export default function BoardPage() {
 
           {/* Kanban Board */}
           <div className="flex gap-4 overflow-x-auto pb-4">
-            {filteredColumns.map((column) => (
-              <div key={column.id} className="vg-column min-w-[300px]">
-                {/* Column Header */}
-                <div className="vg-column-header">
-                  <span
-                    className={`w-2 h-2 rounded-full ${columnColors[column.id]}`}
-                  />
-                  {column.title}
-                  <span className="ml-auto bg-vg-surface px-2 py-0.5 rounded-full text-xs">
-                    {column.tasks.length}
-                  </span>
-                </div>
-
-                {/* Tasks */}
-                <div className="flex flex-col gap-3">
-                  {column.tasks.map((task) => (
-                    <TaskCardBase
-                      key={task.id}
-                      task={task}
-                      showDescription={true}
+            {COLUMNS.map((column) => {
+              const tasks = getFilteredTasks(column.id);
+              
+              return (
+                <div key={column.id} className="vg-column min-w-[300px]">
+                  {/* Column Header */}
+                  <div className="vg-column-header">
+                    <span
+                      className={`w-2 h-2 rounded-full ${columnColors[column.id]}`}
                     />
-                  ))}
-                  {column.tasks.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground text-sm">
-                      No tasks
-                    </div>
-                  )}
-                </div>
+                    {column.title}
+                    <span className="ml-auto bg-vg-surface px-2 py-0.5 rounded-full text-xs">
+                      {loading ? "..." : tasks.length}
+                    </span>
+                  </div>
 
-                {/* Add Task Button */}
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="w-full mt-3 p-2 border border-dashed border-border rounded-lg text-muted-foreground text-sm hover:border-vg-primary hover:text-vg-primary transition-colors flex items-center justify-center gap-1"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add task
-                </button>
-              </div>
-            ))}
+                  {/* Tasks */}
+                  <div className="flex flex-col gap-3">
+                    {loading ? (
+                      // Loading skeletons
+                      <>
+                        <Skeleton className="h-24 w-full rounded-lg" />
+                        <Skeleton className="h-24 w-full rounded-lg" />
+                      </>
+                    ) : (
+                      tasks.map((task) => (
+                        <TaskCardBase
+                          key={task.id}
+                          task={{
+                            id: task.key,
+                            title: task.title,
+                            description: task.description,
+                            status: task.status as "backlog" | "in-progress" | "review" | "done",
+                            priority: task.priority as "low" | "medium" | "high" | "critical",
+                            assignees: task.assignee ? [task.assignee.full_name || task.assignee.email] : [],
+                            comments: 0,
+                          }}
+                          showDescription={true}
+                        />
+                      ))
+                    )}
+                    {!loading && tasks.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        No tasks
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Add Task Button */}
+                  <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="w-full mt-3 p-2 border border-dashed border-border rounded-lg text-muted-foreground text-sm hover:border-vg-primary hover:text-vg-primary transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add task
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </main>
 
@@ -279,7 +277,7 @@ export default function BoardPage() {
         <div className="p-4 border-t border-border">
           <ChatInput
             placeholder="Ask Vangraph to create tasks, refactor code, or analyze the sprint..."
-            contextLabel="Sprint 1 • 12 active tasks"
+            contextLabel={`Sprint 1 • ${totalTasks} tasks`}
           />
         </div>
       </div>
@@ -291,58 +289,67 @@ export default function BoardPage() {
       >
         <div className="p-6">
           <h2 className="text-lg font-bold text-foreground mb-4">Create New Task</h2>
-          <form className="space-y-4">
-          <Input
-            label="Task Title"
-            placeholder="Enter task title"
-            required
-          />
-          <TextArea
-            label="Description"
-            placeholder="Describe the task..."
-            rows={3}
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">
-                Priority
-              </label>
-              <select className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground text-sm">
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
-              </select>
+          <form className="space-y-4" onSubmit={handleCreateTask}>
+            <Input
+              label="Task Title"
+              placeholder="Enter task title"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              required
+            />
+            <TextArea
+              label="Description"
+              placeholder="Describe the task..."
+              rows={3}
+              value={newTaskDescription}
+              onChange={(e) => setNewTaskDescription(e.target.value)}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">
+                  Priority
+                </label>
+                <select 
+                  className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground text-sm"
+                  value={newTaskPriority}
+                  onChange={(e) => setNewTaskPriority(e.target.value as Priority)}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">
+                  Status
+                </label>
+                <select className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground text-sm">
+                  <option value="backlog">Backlog</option>
+                  <option value="todo">To Do</option>
+                  <option value="in_progress">In Progress</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">
-                Status
-              </label>
-              <select className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground text-sm">
-                <option value="backlog">Backlog</option>
-                <option value="in-progress">In Progress</option>
-                <option value="review">Review</option>
-              </select>
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                className="flex-1"
+                onClick={() => setIsCreateModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                variant="primary" 
+                className="flex-1"
+                isLoading={isCreating}
+              >
+                Create Task
+              </Button>
             </div>
-          </div>
-          <Input
-            label="Assignees"
-            placeholder="Enter initials (e.g., JD, AR)"
-          />
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              className="flex-1"
-              onClick={() => setIsCreateModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" className="flex-1">
-              Create Task
-            </Button>
-          </div>
-        </form>
+          </form>
         </div>
       </Modal>
     </div>

@@ -1,9 +1,6 @@
 // Governance Service - Human-in-the-loop checkpoints
-import { supabase, isSupabaseConfigured } from './client';
-import type { GovernanceGate, GateStatus, EntityType } from '@/types';
-
-// Mock data
-const mockGates: GovernanceGate[] = [];
+import { supabase } from './client';
+import type { GovernanceGate, EntityType } from '@/types';
 
 // Create governance gate
 export async function createGovernanceGate(payload: {
@@ -12,20 +9,6 @@ export async function createGovernanceGate(payload: {
   step_type: string;
   required_role?: string;
 }): Promise<GovernanceGate> {
-  if (!isSupabaseConfigured()) {
-    const newGate: GovernanceGate = {
-      id: String(mockGates.length + 1),
-      entity_type: payload.entity_type,
-      entity_id: payload.entity_id,
-      step_type: payload.step_type,
-      required_role: payload.required_role || 'member',
-      status: 'pending',
-      created_at: new Date().toISOString(),
-    };
-    mockGates.push(newGate);
-    return newGate;
-  }
-
   const { data, error } = await supabase
     .from('governance_gates')
     .insert(payload)
@@ -41,14 +24,6 @@ export async function getPendingGates(
   entityType: EntityType, 
   entityId: string
 ): Promise<GovernanceGate[]> {
-  if (!isSupabaseConfigured()) {
-    return mockGates.filter(
-      g => g.entity_type === entityType && 
-           g.entity_id === entityId && 
-           g.status === 'pending'
-    );
-  }
-
   const { data, error } = await supabase
     .from('governance_gates')
     .select('*')
@@ -65,16 +40,6 @@ export async function approveGate(
   gateId: string, 
   approverId: string
 ): Promise<GovernanceGate> {
-  if (!isSupabaseConfigured()) {
-    const gate = mockGates.find(g => g.id === gateId);
-    if (!gate) throw new Error('Gate not found');
-    
-    gate.status = 'approved';
-    gate.approver_id = approverId;
-    gate.completed_at = new Date().toISOString();
-    return gate;
-  }
-
   const { data, error } = await supabase
     .from('governance_gates')
     .update({
@@ -96,17 +61,6 @@ export async function rejectGate(
   approverId: string,
   reason?: string
 ): Promise<GovernanceGate> {
-  if (!isSupabaseConfigured()) {
-    const gate = mockGates.find(g => g.id === gateId);
-    if (!gate) throw new Error('Gate not found');
-    
-    gate.status = 'rejected';
-    gate.approver_id = approverId;
-    gate.rejection_reason = reason;
-    gate.completed_at = new Date().toISOString();
-    return gate;
-  }
-
   const { data, error } = await supabase
     .from('governance_gates')
     .update({
@@ -147,20 +101,6 @@ export async function getGovernanceStatus(
   pending: number;
   can_proceed: boolean;
 }> {
-  if (!isSupabaseConfigured()) {
-    const gates = mockGates.filter(
-      g => g.entity_type === entityType && g.entity_id === entityId
-    );
-    
-    return {
-      total_gates: gates.length,
-      approved: gates.filter(g => g.status === 'approved').length,
-      rejected: gates.filter(g => g.status === 'rejected').length,
-      pending: gates.filter(g => g.status === 'pending').length,
-      can_proceed: gates.every(g => g.status === 'approved'),
-    };
-  }
-
   const { data, error } = await supabase
     .from('governance_gates')
     .select('status')
