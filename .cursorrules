@@ -1,15 +1,83 @@
 {
-  "name": "Jira-killer MVP",
+  "name": "Vangraph",
   "taxonomy": {
-    "frontend": "Next.js 15, Tambo SDK, Tailwind CSS",
-    "backend": "Supabase (PostgreSQL, Auth, Functions)",
-    "generative_ui": "UI is dynamic and controlled by the agent. Favor tool-calling over raw text.",
-    "world_model": "Epics -> Sprints -> Tasks structure with vector context for semantic intelligence."
+    "frontend": "Next.js 15 App Router, React 19, Tailwind CSS 4, Radix UI, Framer Motion",
+    "backend": "Supabase (PostgreSQL, Auth, RLS, Edge Functions)",
+    "generative_ui": "Tambo-orchestrated UI. Agent-controlled, schema-first, deterministic.",
+    "world_model": "Epics to Sprints to Tasks with vectorized semantic context and execution traceability."
   },
   "rules": [
-    "Always use the defined Zod schemas in `src/lib/tambo/schemas.ts` for components.",
-    "Favor `withInteractable` for stateful components.",
-    "When suggesting database changes, generate SQL migrations first.",
-    "Prioritize tool use for data fetching and UI updates."
+    "Every Tambo-exposed component must have a Zod schema in src/lib/tambo/schemas.ts.",
+    "Zod schemas are the single source of truth. Never duplicate types manually.",
+    "Only schema-defined props may cross the Tambo agent boundary. No implicit props.",
+    "Components intended for AI interaction must be wrapped with withInteractable and registered with clear intent descriptions.",
+    "Agent-controlled UI must be deterministic on first render. No randomness, timestamps, locale-based branching, or environment variance.",
+    "Favor tool-calling over raw text. Large datasets must never be passed via props, only query parameters or identifiers.",
+    "Agent-visible state must be serializable and stable. No functions, class instances, or non-JSON values.",
+
+    "Default to Server Components for data fetching, layout, and composition.",
+    "Client Components exist only for interactivity, animation, editors, charts, or browser APIs.",
+    "In Next.js 15, params and searchParams are Promises and must be awaited before access.",
+    "redirect and notFound may only be used in Server Components, layouts, or route handlers.",
+    "Never trigger navigation during render.",
+    "Never conditionally render based on client-only values during SSR.",
+    "All fetch calls must explicitly declare caching behavior using cache no-store or revalidate.",
+    "Never rely on implicit App Router fetch caching defaults.",
+    "Avoid revalidate zero unless SSR is explicitly required.",
+
+    "Rendering must be deterministic between server and client.",
+    "Do not use Date.now, Math.random, or locale-sensitive formatting during render.",
+    "Never use suppressHydrationWarning unless absolutely unavoidable and always explain why.",
+    "Assume streaming, partial rendering, and React Strict Mode are always active.",
+
+    "All effects must be idempotent and safe under double invocation.",
+    "Cleanup functions are mandatory for subscriptions, observers, intervals, and Supabase channels.",
+    "Prefer the React 19 use hook for consuming promises instead of useEffect plus useState.",
+    "Never assume effect execution order.",
+    "Avoid derived state stored in useState. Compute during render or via useMemo.",
+
+    "No side effects during render. No fetching, routing, or state updates.",
+    "Never fetch data inside useEffect unless triggered by explicit user interaction.",
+    "Every useEffect dependency array must be audited for referential stability.",
+    "Inline objects or functions in dependency arrays are forbidden unless memoized.",
+    "Prevent infinite API loops and render loops explicitly.",
+    "If concurrent async requests are possible, guard against race conditions using AbortController or request identity tracking.",
+    "Debounced values must never feed back into their own source state.",
+
+    "Use a single Supabase client per runtime and never recreate per render.",
+    "Every table must have Row Level Security enabled.",
+    "RLS policies must be generated alongside schema changes.",
+    "All queries must explicitly select columns and never use select star.",
+    "Realtime channels and listeners must be unsubscribed during cleanup.",
+    "Sensitive logic must run in Supabase Edge Functions and not in client components.",
+    "All schema changes require SQL migrations before application code changes.",
+
+    "Tailwind CSS 4 is CSS-first and theme tokens must live in global CSS using theme blocks.",
+    "No runtime-generated Tailwind class names.",
+    "Use clsx and tailwind-merge via a cn utility for conditional styling.",
+    "Avoid conflicting utility classes that rely on render order.",
+
+    "Always use asChild for Radix Trigger, Close, and Anchor components.",
+    "Radix Portals must be rendered only in Client Components.",
+    "Do not wrap Radix components in ways that break focus traps or keyboard navigation.",
+
+    "All Tiptap HTML output must be sanitized using DOMPurify before rendering.",
+    "All Markdown rendered via react-markdown must be sanitized.",
+    "Never trust editor or Markdown output even if locally generated.",
+    "Mentions, suggestions, and editor metadata must conform to Zod schemas.",
+
+    "Framer Motion components are Client-only and must never animate during SSR.",
+    "Avoid layout-shifting animations that affect hydration.",
+    "Use layoutId for shared element transitions when switching agent-driven views.",
+    "Recharts must always be wrapped in ResponsiveContainer and rendered client-side only.",
+
+    "Secrets must never be exposed via NEXT_PUBLIC environment variables.",
+    "No window, document, or localStorage access outside guarded client effects.",
+    "Middleware must remain synchronous, lightweight, and side-effect free.",
+    "Never access databases or external APIs in middleware.",
+
+    "Before output, verify hydration safety, render determinism, effect stability, explicit caching, Supabase RLS, and schema alignment.",
+    "If a requested solution violates any rule, explain the risk and propose a safer alternative.",
+    "Correctness, determinism, and security outweigh brevity, speed, or creativity."
   ]
 }
