@@ -1,5 +1,5 @@
 // Issues Service - CRUD operations for issues
-import { supabase, isSupabaseConfigured } from './client';
+import { supabase, shouldUseMockData } from './client';
 import type { 
   Issue, 
   IssueWithKey, 
@@ -65,7 +65,7 @@ export async function getIssues(
   projectId: string, 
   filters: IssueFilters = {}
 ): Promise<IssueWithKey[]> {
-  if (!isSupabaseConfigured()) {
+  if (shouldUseMockData(projectId)) {
     // Return mock data with keys
     let filtered = mockIssues.filter(i => i.project_id === projectId || projectId === 'proj-1');
     
@@ -137,7 +137,7 @@ export async function getIssues(
 
 // Get single issue by ID
 export async function getIssueById(issueId: string): Promise<IssueWithKey | null> {
-  if (!isSupabaseConfigured()) {
+  if (shouldUseMockData()) {
     const issue = mockIssues.find(i => i.id === issueId);
     if (!issue) return null;
     return {
@@ -171,7 +171,7 @@ export async function getIssueById(issueId: string): Promise<IssueWithKey | null
 
 // Create issue
 export async function createIssue(payload: CreateIssuePayload): Promise<IssueWithKey> {
-  if (!isSupabaseConfigured()) {
+  if (shouldUseMockData(payload.project_id)) {
     const newIssue: Issue = {
       id: String(mockIssues.length + 1),
       project_id: payload.project_id,
@@ -236,7 +236,7 @@ export async function updateIssue(
   issueId: string, 
   payload: UpdateIssuePayload
 ): Promise<IssueWithKey> {
-  if (!isSupabaseConfigured()) {
+  if (shouldUseMockData()) {
     const index = mockIssues.findIndex(i => i.id === issueId);
     if (index === -1) throw new Error('Issue not found');
     
@@ -285,7 +285,7 @@ export async function updateIssue(
 
 // Delete issue (soft delete)
 export async function deleteIssue(issueId: string): Promise<void> {
-  if (!isSupabaseConfigured()) {
+  if (shouldUseMockData()) {
     const index = mockIssues.findIndex(i => i.id === issueId);
     if (index !== -1) {
       mockIssues[index].archived = true;

@@ -1,5 +1,5 @@
 // Projects Service
-import { supabase, isSupabaseConfigured } from './client';
+import { supabase, shouldUseMockData } from './client';
 import type { Project, ProjectStats } from '@/types';
 
 // Mock data
@@ -19,7 +19,7 @@ const mockProjects: Project[] = [
 
 // Get project by ID
 export async function getProjectById(projectId: string): Promise<Project | null> {
-  if (!isSupabaseConfigured()) {
+  if (shouldUseMockData(projectId)) {
     return mockProjects.find(p => p.id === projectId) || null;
   }
 
@@ -35,7 +35,7 @@ export async function getProjectById(projectId: string): Promise<Project | null>
 
 // Get project by key
 export async function getProjectByKey(workspaceId: string, key: string): Promise<Project | null> {
-  if (!isSupabaseConfigured()) {
+  if (shouldUseMockData(workspaceId)) {
     return mockProjects.find(p => p.workspace_id === workspaceId && p.key === key) || null;
   }
 
@@ -52,7 +52,7 @@ export async function getProjectByKey(workspaceId: string, key: string): Promise
 
 // Get all projects in workspace
 export async function getProjects(workspaceId: string): Promise<Project[]> {
-  if (!isSupabaseConfigured()) {
+  if (shouldUseMockData(workspaceId)) {
     return mockProjects.filter(p => p.workspace_id === workspaceId || workspaceId === 'ws-1');
   }
 
@@ -70,7 +70,7 @@ export async function getProjects(workspaceId: string): Promise<Project[]> {
 export async function createProject(
   payload: Omit<Project, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Project> {
-  if (!isSupabaseConfigured()) {
+  if (shouldUseMockData(payload.workspace_id)) {
     const newProject: Project = {
       id: `proj-${mockProjects.length + 1}`,
       ...payload,
@@ -93,7 +93,7 @@ export async function createProject(
 
 // Get project stats
 export async function getProjectStats(projectId: string): Promise<ProjectStats> {
-  if (!isSupabaseConfigured()) {
+  if (shouldUseMockData(projectId)) {
     // Mock stats
     return {
       total_issues: 15,
