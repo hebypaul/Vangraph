@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
@@ -7,6 +8,7 @@ import { AgentStatusCardBase } from "@/components/tambo/agent-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/atomic/button/Button";
 import { Progress } from "@/components/atomic/feedback/Progress";
+import { Skeleton } from "@/components/atomic/feedback/Skeleton";
 import {
   Sparkles,
   ArrowRight,
@@ -24,22 +26,10 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-// Mock project stats - would come from getProjectStats service
-const projectStats = {
-  totalTasks: 24,
-  completedTasks: 8,
-  inProgressTasks: 6,
-  backlogTasks: 10,
-  velocity: 42,
-  blockers: 1,
-};
-
-// Mock agents data - would come from getAgentStatus service
-const agents = [
-  { name: "Coder Agent", type: "coder" as const, status: "active" as const },
-  { name: "QA Agent", type: "qa" as const, status: "idle" as const },
-  { name: "Architect Agent", type: "architect" as const, status: "reviewing" as const },
-];
+// Import services
+import { getProjectStats } from "@/services/supabase/projects";
+import { DEFAULT_PROJECT_ID } from "@/lib/constants";
+import type { ProjectStats } from "@/types";
 
 // Quick action cards configuration
 const quickActions = [
@@ -77,23 +67,38 @@ const quickActions = [
   },
 ];
 
+// Mock agents data - would connect to agent monitoring service
+const agents = [
+  { name: "Coder Agent", type: "coder" as const, status: "active" as const },
+  { name: "QA Agent", type: "qa" as const, status: "idle" as const },
+  { name: "Architect Agent", type: "architect" as const, status: "reviewing" as const },
+];
+
 export default function Home() {
-  const completionRate = Math.round(
-    (projectStats.completedTasks / projectStats.totalTasks) * 100
-  );
+  const [stats, setStats] = useState<ProjectStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getProjectStats(DEFAULT_PROJECT_ID)
+      .then(setStats)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const completionRate = stats ? stats.completion_rate : 0;
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
       <div className="flex-1 ml-[var(--sidebar-width)] flex flex-col">
-        <Header projectName="Vangraph" sprintName="Sprint 1" />
+        <Header projectName="Vangraph" sprintName={stats?.active_sprint?.name || "Sprint 1"} />
 
         <main className="flex-1 p-8 overflow-auto">
           <div className="max-w-6xl mx-auto space-y-8">
             {/* Hero Section */}
             <section className="text-center mb-8">
               <div className="inline-flex items-center gap-2 mb-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-vg-primary to-vg-purple flex items-center justify-center shadow-lg shadow-vg-primary/25 animate-pulse-glow">
+                <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-vg-primary to-vg-purple flex items-center justify-center shadow-lg shadow-vg-primary/25 animate-pulse-glow">
                   <Sparkles className="w-8 h-8 text-white" />
                 </div>
               </div>
@@ -113,9 +118,13 @@ export default function Home() {
                   <LayoutDashboard className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {projectStats.totalTasks}
-                  </p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-12 mb-1" />
+                  ) : (
+                    <p className="text-2xl font-bold text-foreground">
+                      {stats?.total_issues ?? 0}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">Total Tasks</p>
                 </div>
               </div>
@@ -125,9 +134,13 @@ export default function Home() {
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {projectStats.completedTasks}
-                  </p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-12 mb-1" />
+                  ) : (
+                    <p className="text-2xl font-bold text-foreground">
+                      {stats?.completed_issues ?? 0}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">Completed</p>
                 </div>
               </div>
@@ -137,9 +150,13 @@ export default function Home() {
                   <Clock className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {projectStats.inProgressTasks}
-                  </p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-12 mb-1" />
+                  ) : (
+                    <p className="text-2xl font-bold text-foreground">
+                      {stats?.in_progress_issues ?? 0}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">In Progress</p>
                 </div>
               </div>
@@ -149,9 +166,13 @@ export default function Home() {
                   <AlertTriangle className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {projectStats.blockers}
-                  </p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-12 mb-1" />
+                  ) : (
+                    <p className="text-2xl font-bold text-foreground">
+                      {stats?.blocked_issues ?? 0}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">Blockers</p>
                 </div>
               </div>
@@ -165,13 +186,13 @@ export default function Home() {
                     Sprint Progress
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Sprint 1 • Feb 1 - Feb 14
+                    {stats?.active_sprint?.name || "Sprint 1"} • {stats?.active_sprint?.start_date || "Feb 1"} - {stats?.active_sprint?.end_date || "Feb 14"}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="primary">IN PROGRESS</Badge>
                   <span className="text-2xl font-bold text-vg-primary">
-                    {completionRate}%
+                    {loading ? "..." : `${completionRate}%`}
                   </span>
                 </div>
               </div>
@@ -182,7 +203,7 @@ export default function Home() {
                   <span className="text-sm text-muted-foreground">
                     Velocity:{" "}
                     <span className="font-bold text-foreground">
-                      {projectStats.velocity} pts
+                      {stats?.velocity ?? 0} pts
                     </span>
                   </span>
                 </div>
@@ -234,7 +255,7 @@ export default function Home() {
                     className="vg-card flex flex-col items-center gap-3 group hover:border-vg-primary/50 text-center py-6"
                   >
                     <div
-                      className={`w-14 h-14 rounded-xl bg-gradient-to-br ${action.gradient} flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110`}
+                      className={`w-14 h-14 rounded-xl bg-linear-to-br ${action.gradient} flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110`}
                     >
                       <action.icon className="w-7 h-7" />
                     </div>
@@ -285,7 +306,7 @@ export default function Home() {
                   },
                 ].map((feature) => (
                   <div key={feature.name} className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-vg-success mt-0.5 flex-shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-vg-success mt-0.5 shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-foreground">
                         {feature.name}
