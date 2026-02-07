@@ -220,21 +220,21 @@ function BoardContent() {
 
     if (!sourceColumn || !targetColumn) return;
 
-    // Get target column issues
-    const targetIssues = [...(issues[targetColumn] || [])];
+    // Get target column issues (excluding the dragged item to compute correct neighbors)
+    const targetIssuesWithoutActive = (issues[targetColumn] || []).filter(i => i.id !== activeId);
     
-    // Find insertion index
-    let insertIndex = targetIssues.length; // Default to end
+    // Find insertion index in the filtered list
+    let insertIndex = targetIssuesWithoutActive.length; // Default to end
     if (overId !== targetColumn) {
-      const overIndex = targetIssues.findIndex((i) => i.id === overId);
+      const overIndex = targetIssuesWithoutActive.findIndex((i) => i.id === overId);
       if (overIndex !== -1) {
         insertIndex = overIndex;
       }
     }
 
     // Calculate new position using fractional indexing
-    const positionAbove = insertIndex > 0 ? (targetIssues[insertIndex - 1]?.position ?? (insertIndex - 1) * 1000) : null;
-    const positionBelow = insertIndex < targetIssues.length ? (targetIssues[insertIndex]?.position ?? insertIndex * 1000) : null;
+    const positionAbove = insertIndex > 0 ? (targetIssuesWithoutActive[insertIndex - 1]?.position ?? (insertIndex - 1) * 1000) : null;
+    const positionBelow = insertIndex < targetIssuesWithoutActive.length ? (targetIssuesWithoutActive[insertIndex]?.position ?? insertIndex * 1000) : null;
     const newPosition = calculatePosition(positionAbove, positionBelow);
 
     // Optimistic update
@@ -429,7 +429,7 @@ function BoardContent() {
       </div>
 
       {/* Issue Detail Modal (URL-state driven) */}
-      <IssueDetailModal />
+      <IssueDetailModal onSave={loadIssues} />
 
       {/* Create Task Modal */}
       <Modal

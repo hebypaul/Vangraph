@@ -62,7 +62,11 @@ function PropertyRow({
   );
 }
 
-export function IssueDetailModal() {
+interface IssueDetailModalProps {
+  onSave?: () => void; // Callback to notify parent when issue is saved
+}
+
+export function IssueDetailModal({ onSave }: IssueDetailModalProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const ticketId = searchParams.get("ticketId");
@@ -137,6 +141,8 @@ export function IssueDetailModal() {
       });
       await loadIssue(issue.id);
       setIsEditing(false);
+      // Notify parent to refresh the board
+      onSave?.();
     } catch (error) {
       console.error("Failed to save issue:", error);
     } finally {
@@ -457,7 +463,14 @@ export function IssueDetailModal() {
                       {/* Due Date */}
                       <PropertyRow icon={Calendar} label="Due Date">
                         <span className={clsx(
-                          issue.due_date && new Date(issue.due_date) < new Date() 
+                          issue.due_date && (() => {
+                            const dueDate = new Date(issue.due_date);
+                            const today = new Date();
+                            // Compare by calendar day only (due date is considered overdue if it's before today, not today itself)
+                            dueDate.setHours(23, 59, 59, 999);
+                            today.setHours(0, 0, 0, 0);
+                            return dueDate < today;
+                          })()
                             ? "text-red-400" 
                             : "text-foreground"
                         )}>
