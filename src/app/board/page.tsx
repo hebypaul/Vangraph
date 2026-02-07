@@ -1,9 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { TaskCardBase } from "@/components/tambo/task-card";
 import { AgentStatusCardBase } from "@/components/tambo/agent-status";
 import { ChatInput } from "@/components/layout/chat-input";
 import { Button } from "@/components/atomic/button/Button";
@@ -14,6 +27,7 @@ import { TextArea } from "@/components/atomic/input/TextArea";
 import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/atomic/overlay/Dropdown";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/atomic/feedback/Skeleton";
+import { DroppableColumn, DraggableCard, IssueDetailModal } from "@/components/kanban";
 import {
   Plus,
   Filter,
@@ -22,7 +36,13 @@ import {
 } from "lucide-react";
 
 // Import services
-import { getIssuesByStatus, createIssue } from "@/services/supabase/issues";
+import {
+  getIssuesByStatus,
+  createIssue,
+  updateIssuePosition,
+  calculatePosition,
+  subscribeToIssues,
+} from "@/services/supabase/issues";
 import { DEFAULT_PROJECT_ID } from "@/lib/constants";
 import type { IssueWithKey, IssueStatus, Priority } from "@/types";
 
@@ -51,26 +71,34 @@ const agents = [
   { name: "Architect Agent", type: "architect" as const, status: "reviewing" as const },
 ];
 
-export default function BoardPage() {
+function BoardContent() {
+  const router = useRouter();
   const [issues, setIssues] = useState<Record<IssueStatus, IssueWithKey[]> | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  
+  const [activeIssue, setActiveIssue] = useState<IssueWithKey | null>(null);
+
   // Form state
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState<Priority>("medium");
   const [isCreating, setIsCreating] = useState(false);
 
-  // Fetch issues on mount
-  useEffect(() => {
-    loadIssues();
-  }, []);
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-  const loadIssues = async () => {
-    setLoading(true);
+  const loadIssues = useCallback(async () => {
     try {
       const data = await getIssuesByStatus(DEFAULT_PROJECT_ID);
       setIssues(data);
@@ -79,13 +107,27 @@ export default function BoardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Fetch issues on mount + realtime subscription
+  useEffect(() => {
+    loadIssues();
+    
+    // Subscribe to realtime updates
+    const unsubscribe = subscribeToIssues(DEFAULT_PROJECT_ID, () => {
+      loadIssues();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [loadIssues]);
 
   // Handle create task
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
-    
+
     setIsCreating(true);
     try {
       await createIssue({
@@ -95,10 +137,10 @@ export default function BoardPage() {
         priority: newTaskPriority,
         status: "backlog",
       });
-      
+
       // Refresh issues
       await loadIssues();
-      
+
       // Reset form
       setNewTaskTitle("");
       setNewTaskDescription("");
@@ -116,7 +158,7 @@ export default function BoardPage() {
     if (!issues) return [];
     const columnTasks = issues[columnId] || [];
     if (!searchQuery) return columnTasks;
-    
+
     return columnTasks.filter(
       (task) =>
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -124,8 +166,114 @@ export default function BoardPage() {
     );
   };
 
-  const totalTasks = issues 
-    ? Object.values(issues).reduce((acc, tasks) => acc + tasks.length, 0) 
+  // Get all task IDs for a column
+  const getColumnTaskIds = (columnId: IssueStatus): string[] => {
+    return getFilteredTasks(columnId).map((t) => t.id);
+  };
+
+  // Find which column an issue is in
+  const findColumnForIssue = (issueId: string): IssueStatus | null => {
+    if (!issues) return null;
+    for (const [status, statusIssues] of Object.entries(issues)) {
+      if (statusIssues.some((i) => i.id === issueId)) {
+        return status as IssueStatus;
+      }
+    }
+    return null;
+  };
+
+  // Handle drag start
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const issueId = active.id as string;
+    
+    // Find the issue being dragged
+    if (issues) {
+      for (const statusIssues of Object.values(issues)) {
+        const found = statusIssues.find((i) => i.id === issueId);
+        if (found) {
+          setActiveIssue(found);
+          break;
+        }
+      }
+    }
+  };
+
+  // Handle drag end
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveIssue(null);
+
+    if (!over || !issues) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Determine target column
+    const sourceColumn = findColumnForIssue(activeId);
+    let targetColumn: IssueStatus | null = COLUMNS.find((c) => c.id === overId)?.id || null;
+    
+    // If dropped on another card, find its column
+    if (!targetColumn) {
+      targetColumn = findColumnForIssue(overId);
+    }
+
+    if (!sourceColumn || !targetColumn) return;
+
+    // Get target column issues (excluding the dragged item to compute correct neighbors)
+    const targetIssuesWithoutActive = (issues[targetColumn] || []).filter(i => i.id !== activeId);
+    
+    // Find insertion index in the filtered list
+    let insertIndex = targetIssuesWithoutActive.length; // Default to end
+    if (overId !== targetColumn) {
+      const overIndex = targetIssuesWithoutActive.findIndex((i) => i.id === overId);
+      if (overIndex !== -1) {
+        insertIndex = overIndex;
+      }
+    }
+
+    // Calculate new position using fractional indexing
+    const positionAbove = insertIndex > 0 ? (targetIssuesWithoutActive[insertIndex - 1]?.position ?? (insertIndex - 1) * 1000) : null;
+    const positionBelow = insertIndex < targetIssuesWithoutActive.length ? (targetIssuesWithoutActive[insertIndex]?.position ?? insertIndex * 1000) : null;
+    const newPosition = calculatePosition(positionAbove, positionBelow);
+
+    // Optimistic update
+    const updatedIssues = { ...issues };
+    
+    // Remove from source
+    updatedIssues[sourceColumn] = updatedIssues[sourceColumn].filter((i) => i.id !== activeId);
+    
+    // Find the issue being moved
+    const movingIssue = issues[sourceColumn].find((i) => i.id === activeId);
+    if (!movingIssue) return;
+
+    // Add to target with new position
+    const updatedIssue = { ...movingIssue, status: targetColumn, position: newPosition };
+    updatedIssues[targetColumn] = [
+      ...updatedIssues[targetColumn].slice(0, insertIndex),
+      updatedIssue,
+      ...updatedIssues[targetColumn].slice(insertIndex),
+    ].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+    setIssues(updatedIssues);
+
+    // Persist to Supabase
+    try {
+      await updateIssuePosition(activeId, targetColumn, newPosition);
+    } catch (error) {
+      console.error("Failed to update issue position:", error);
+      // Revert on error
+      await loadIssues();
+    }
+  };
+
+  // Open issue detail modal
+  const openIssueDetail = (issueId: string) => {
+    router.push(`/board?ticketId=${issueId}`, { scroll: false });
+  };
+
+  const totalTasks = issues
+    ? Object.values(issues).reduce((acc, tasks) => acc + tasks.length, 0)
     : 0;
 
   return (
@@ -209,68 +357,66 @@ export default function BoardPage() {
             ))}
           </div>
 
-          {/* Kanban Board */}
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {COLUMNS.map((column) => {
-              const tasks = getFilteredTasks(column.id);
-              
-              return (
-                <div key={column.id} className="vg-column min-w-[300px]">
-                  {/* Column Header */}
-                  <div className="vg-column-header">
-                    <span
-                      className={`w-2 h-2 rounded-full ${columnColors[column.id]}`}
-                    />
-                    {column.title}
-                    <span className="ml-auto bg-vg-surface px-2 py-0.5 rounded-full text-xs">
-                      {loading ? "..." : tasks.length}
-                    </span>
-                  </div>
+          {/* Kanban Board with DnD */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {COLUMNS.map((column) => {
+                const tasks = getFilteredTasks(column.id);
+                const taskIds = getColumnTaskIds(column.id);
 
-                  {/* Tasks */}
-                  <div className="flex flex-col gap-3">
+                return (
+                  <DroppableColumn
+                    key={column.id}
+                    id={column.id}
+                    title={column.title}
+                    count={tasks.length}
+                    colorClass={columnColors[column.id]}
+                    itemIds={taskIds}
+                    isLoading={loading}
+                    onAddClick={() => setIsCreateModalOpen(true)}
+                  >
                     {loading ? (
-                      // Loading skeletons
                       <>
                         <Skeleton className="h-24 w-full rounded-lg" />
                         <Skeleton className="h-24 w-full rounded-lg" />
                       </>
-                    ) : (
+                    ) : tasks.length > 0 ? (
                       tasks.map((task) => (
-                        <TaskCardBase
+                        <DraggableCard
                           key={task.id}
-                          task={{
-                            id: task.key,
-                            title: task.title,
-                            description: task.description,
-                            status: task.status as "backlog" | "in-progress" | "review" | "done",
-                            priority: task.priority as "low" | "medium" | "high" | "critical",
-                            assignees: task.assignee ? [task.assignee.full_name || task.assignee.email] : [],
-                            comments: 0,
-                          }}
-                          showDescription={true}
+                          issue={task}
+                          onClick={() => openIssueDetail(task.id)}
                         />
                       ))
-                    )}
-                    {!loading && tasks.length === 0 && (
+                    ) : (
                       <div className="text-center py-8 text-muted-foreground text-sm">
                         No tasks
                       </div>
                     )}
-                  </div>
+                  </DroppableColumn>
+                );
+              })}
+            </div>
 
-                  {/* Add Task Button */}
-                  <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="w-full mt-3 p-2 border border-dashed border-border rounded-lg text-muted-foreground text-sm hover:border-vg-primary hover:text-vg-primary transition-colors flex items-center justify-center gap-1"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add task
-                  </button>
+            {/* Drag Overlay */}
+            <DragOverlay>
+              {activeIssue ? (
+                <div className="bg-card p-4 rounded-lg border border-primary shadow-2xl rotate-3 scale-105 opacity-90">
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {activeIssue.key}
+                  </span>
+                  <h4 className="text-sm font-semibold text-foreground mt-1">
+                    {activeIssue.title}
+                  </h4>
                 </div>
-              );
-            })}
-          </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </main>
 
         {/* Bottom Chat Input */}
@@ -281,6 +427,9 @@ export default function BoardPage() {
           />
         </div>
       </div>
+
+      {/* Issue Detail Modal (URL-state driven) */}
+      <IssueDetailModal onSave={loadIssues} />
 
       {/* Create Task Modal */}
       <Modal
@@ -309,7 +458,7 @@ export default function BoardPage() {
                 <label className="text-sm font-medium text-foreground mb-1.5 block">
                   Priority
                 </label>
-                <select 
+                <select
                   className="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground text-sm"
                   value={newTaskPriority}
                   onChange={(e) => setNewTaskPriority(e.target.value as Priority)}
@@ -340,9 +489,9 @@ export default function BoardPage() {
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
-                variant="primary" 
+              <Button
+                type="submit"
+                variant="primary"
                 className="flex-1"
                 isLoading={isCreating}
               >
@@ -353,5 +502,13 @@ export default function BoardPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+export default function BoardPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen bg-background items-center justify-center">Loading...</div>}>
+      <BoardContent />
+    </Suspense>
   );
 }

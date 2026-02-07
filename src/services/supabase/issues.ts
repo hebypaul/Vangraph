@@ -69,19 +69,55 @@ export async function getIssues(
   }));
 }
 
-// Get single issue by ID
+// Get single issue by ID with all relations
 export async function getIssueById(issueId: string): Promise<IssueWithKey | null> {
+  // First, fetch the base issue
   const { data, error } = await supabase
     .from('issues')
     .select('*')
     .eq('id', issueId)
-    .single();
+    .maybeSingle(); // Use maybeSingle to not error on no results
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error fetching issue:', error.message, error.code, error.details);
+    throw new Error(error.message || 'Failed to fetch issue');
+  }
   if (!data) return null;
 
   const issue = data as Issue;
 
+  // Fetch sprint if exists
+  let sprint = null;
+  if (issue.sprint_id) {
+    const { data: sprintData } = await supabase
+      .from('sprints')
+      .select('id, name, status, start_date, end_date')
+      .eq('id', issue.sprint_id)
+      .single();
+    sprint = sprintData;
+  }
+
+  // Fetch module if exists
+  let module = null;
+  if (issue.module_id) {
+    const { data: moduleData } = await supabase
+      .from('modules')
+      .select('id, name, color, description')
+      .eq('id', issue.module_id)
+      .single();
+    module = moduleData;
+  }
+
+  // Fetch labels (many-to-many)
+  const { data: labelData } = await supabase
+    .from('issue_labels')
+    .select('label:labels(id, name, color)')
+    .eq('issue_id', issueId);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const labels = (labelData || []).map((row: any) => row.label).filter(Boolean);
+
+  // Get project key for formatting
   const { data: project } = await supabase
     .from('projects')
     .select('key')
@@ -90,8 +126,11 @@ export async function getIssueById(issueId: string): Promise<IssueWithKey | null
 
   return {
     ...issue,
+    sprint,
+    module,
+    labels,
     key: `${project?.key || 'VAN'}-${String(issue.sequence_id).padStart(3, '0')}`
-  };
+  } as IssueWithKey;
 }
 
 // Create issue
@@ -204,9 +243,111 @@ export async function getIssuesByStatus(
     cancelled: [],
   };
   
+  // Sort by position for consistent ordering
+  issues.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  
   issues.forEach(issue => {
     grouped[issue.status].push(issue);
   });
   
   return grouped;
+}
+
+// Update issue position using fractional indexing (O(1) single-row update)
+// Falls back to status-only update if position column doesn't exist
+export async function updateIssuePosition(
+  issueId: string,
+  newStatus: IssueStatus,
+  newPosition: number // Calculated as (positionAbove + positionBelow) / 2
+): Promise<IssueWithKey> {
+  // Try update with position first
+  let { data, error } = await supabase
+    .from('issues')
+    .update({ 
+      status: newStatus, 
+      position: newPosition,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', issueId)
+    .select()
+    .single();
+
+  // If position column doesn't exist, fall back to status-only update
+  if (error && (error.message?.includes('position') || error.code === '42703')) {
+    console.warn('Position column not found, updating status only');
+    const result = await supabase
+      .from('issues')
+      .update({ 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', issueId)
+      .select()
+      .single();
+    
+    data = result.data;
+    error = result.error;
+  }
+
+  if (error) throw error;
+
+  const issue = data as Issue;
+
+  // Get project key for formatting
+  const { data: project } = await supabase
+    .from('projects')
+    .select('key')
+    .eq('id', issue.project_id)
+    .single();
+
+  return {
+    ...issue,
+    key: `${project?.key || 'VAN'}-${String(issue.sequence_id).padStart(3, '0')}`
+  };
+}
+
+// Calculate new position between two items (fractional indexing)
+export function calculatePosition(
+  positionAbove: number | null,
+  positionBelow: number | null,
+  defaultGap: number = 1000
+): number {
+  if (positionAbove === null && positionBelow === null) {
+    return defaultGap; // First item in empty column
+  }
+  if (positionAbove === null) {
+    return (positionBelow ?? defaultGap) / 2; // Inserting at top
+  }
+  if (positionBelow === null) {
+    return positionAbove + defaultGap; // Inserting at bottom
+  }
+  return (positionAbove + positionBelow) / 2; // Inserting between two items
+}
+
+// Subscribe to realtime issue updates for live sync
+export function subscribeToIssues(
+  projectId: string,
+  onUpdate: () => void
+): () => void {
+  const channel = supabase
+    .channel(`issues:${projectId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+        schema: 'public',
+        table: 'issues',
+        filter: `project_id=eq.${projectId}`
+      },
+      () => {
+        // Trigger a full refresh on any change
+        onUpdate();
+      }
+    )
+    .subscribe();
+
+  // Return unsubscribe function
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }

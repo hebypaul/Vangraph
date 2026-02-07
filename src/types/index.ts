@@ -134,7 +134,7 @@ export interface Issue {
   
   // Estimation
   estimate_points?: number;
-  
+  position?: number; // Fractional indexing for Kanban ordering  
   // Dates
   due_date?: string;
   started_at?: string;
@@ -370,10 +370,12 @@ export interface UpdateIssuePayload {
   status?: IssueStatus;
   priority?: Priority;
   assignee_id?: string | null;
+  reporter_id?: string | null;
   sprint_id?: string | null;
   module_id?: string | null;
   estimate_points?: number | null;
   due_date?: string | null;
+  started_at?: string | null;
   label_ids?: string[];
 }
 
