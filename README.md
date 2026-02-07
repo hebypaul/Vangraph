@@ -25,6 +25,9 @@
     *   **Task Cards**: smart visualization of work items.
     *   **Phase Cards**: track project lifecycle stages.
     *   **Agent Status**: real-time activity monitoring of AI helpers.
+    *   **Project Dashboard**: high-level project overview with task counts and AI insights.
+    *   **AI Insight**: AI-generated insights and suggestions.
+    *   **AI Consultant**: interactive AI panel for project advice.
 *   **⚡ Tambo Integration**: Built on Tambo SDK for seamless generative interface creation.
 *   **🛠️ Tools & MCP**:
     *   Supabase integration for data persistence.
@@ -79,12 +82,28 @@
     ```
     Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Authentication
+
+Vangraph uses Supabase Auth for user management.
+
+### Login / Signup
+*   **Sign Up**: Navigate to `/signup` to create a new account with your email, password, and full name.
+*   **Sign In**: Use `/login` to access your account.
+*   **Forgot Password**: If you forget your password, the login page provides a link to reset it (requires email configuration in Supabase).
+
+> **Note**: For local development, check your local Supabase Inbucket (usually at `http://localhost:54324`) to retrieve email confirmation links.
+
 ## Configuration
 
 ### Tambo Configuration
 The core AI configuration lives in `src/lib/tambo.ts`. This file defines:
-*   **Tools**: Functions the AI can execute (e.g., `getProjectStats`, `createTask`).
-*   **Components**: UI elements the AI can generate (e.g., `TaskCard`, `ProjectDashboard`).
+*   **Tools**: Functions the AI can execute:
+    *   `getProjectStats`: Get current project statistics.
+    *   `getTasks`: Fetch tasks with optional status filtering.
+    *   `createTask`: Create new tasks with priority.
+    *   `updateTaskStatus`: Move tasks between statuses.
+    *   `getAgentStatus`: Check the status of AI agents.
+*   **Components**: UI elements the AI can generate (e.g., `TaskCard`, `ProjectDashboard`, `PhaseCard`, `AIInsight`, `AIConsultant`).
 
 ### MCP (Model Context Protocol)
 Vangraph uses MCP to connect with external services. Configure MCP servers in `src/components/tambo/mcp-components.tsx` to extend capabilities.
