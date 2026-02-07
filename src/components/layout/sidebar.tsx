@@ -15,8 +15,15 @@ import {
   Settings,
 } from "lucide-react";
 
+interface SidebarUser {
+  fullName?: string | null;
+  email?: string;
+  avatarUrl?: string | null;
+}
+
 interface SidebarProps {
   className?: string;
+  user?: SidebarUser;
 }
 
 const navItems = [
@@ -33,15 +40,24 @@ const systemItems = [
   { href: "/settings", icon: Settings, label: "Settings" },
 ];
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className, user }: SidebarProps) {
   const pathname = usePathname();
+  
+  // Get user display name and initials
+  const displayName = user?.fullName || user?.email?.split('@')[0] || 'User';
+  const initials = displayName
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <aside className={cn("vg-sidebar", className)}>
       {/* Logo */}
       <div className="mb-6">
         <Link href="/" className="block">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-vg-primary to-vg-purple flex items-center justify-center shadow-lg shadow-vg-primary/25 transition-transform hover:scale-105">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-vg-primary to-vg-purple flex items-center justify-center shadow-lg shadow-vg-primary/25 transition-transform hover:scale-105">
             <span className="text-white font-black text-lg">V</span>
           </div>
         </Link>
@@ -97,12 +113,21 @@ export function Sidebar({ className }: SidebarProps) {
 
       {/* User Avatar */}
       <div className="mt-4 mb-2">
-        <Tooltip content="John Doe" side="right">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-vg-warning to-vg-danger flex items-center justify-center text-white text-xs font-bold cursor-pointer hover:scale-105 transition-transform">
-            JD
-          </div>
+        <Tooltip content={displayName} side="right">
+          {user?.avatarUrl ? (
+            <img 
+              src={user.avatarUrl} 
+              alt={displayName}
+              className="w-8 h-8 rounded-full cursor-pointer hover:scale-105 transition-transform"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-linear-to-br from-vg-warning to-vg-danger flex items-center justify-center text-white text-xs font-bold cursor-pointer hover:scale-105 transition-transform">
+              {initials}
+            </div>
+          )}
         </Tooltip>
       </div>
     </aside>
   );
 }
+

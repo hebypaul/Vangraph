@@ -7,12 +7,14 @@ interface HeaderProps {
   projectName?: string;
   sprintName?: string;
   className?: string;
+  children?: React.ReactNode;
 }
 
 export function Header({ 
   projectName = "Project Phoenix", 
   sprintName = "SPRINT-4",
-  className 
+  className,
+  children 
 }: HeaderProps) {
   return (
     <header className={cn("vg-header", className)}>
@@ -42,6 +44,9 @@ export function Header({
           <Bell className="w-5 h-5" />
           <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-vg-danger" />
         </button>
+
+        {/* Custom children (e.g., UserNav) */}
+        {children}
       </div>
     </header>
   );
