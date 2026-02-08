@@ -32,13 +32,17 @@ import { DEFAULT_PROJECT_ID } from "./constants";
 // TOOLS (connected to Supabase services)
 // ============================================
 
-export const tools: TamboTool[] = [
+// ============================================
+// TOOLS (connected to Supabase services)
+// ============================================
+
+export const createTools = (projectId: string = DEFAULT_PROJECT_ID): TamboTool[] => [
   {
     name: "getProjectStats",
     description: "Get current project statistics including task counts by status, velocity, and completion rate",
     tool: async () => {
       try {
-        const stats = await getProjectStats(DEFAULT_PROJECT_ID);
+        const stats = await getProjectStats(projectId);
         return {
           totalTasks: stats.total_issues,
           completedTasks: stats.completed_issues,
@@ -85,7 +89,7 @@ export const tools: TamboTool[] = [
           filters.status = [mappedStatus];
         }
         
-        const issues = await getIssues(DEFAULT_PROJECT_ID, filters as unknown as Parameters<typeof getIssues>[1]);
+        const issues = await getIssues(projectId, filters as unknown as Parameters<typeof getIssues>[1]);
         
         return issues.map(issue => ({
           id: issue.key,
@@ -93,6 +97,11 @@ export const tools: TamboTool[] = [
           description: issue.description || "",
           status: issue.status,
           priority: issue.priority,
+          assignees: issue.assignee ? 
+            (Array.isArray(issue.assignee) ? issue.assignee : [issue.assignee])
+              .map((a: any) => a.full_name ? a.full_name.substring(0, 2).toUpperCase() : "U") 
+            : [],
+          comments: 0 // Placeholder as count not in default fetch
         }));
       } catch (error) {
         return [{ id: "error", title: `Failed to fetch: ${error}`, status: "error", priority: "low" }];
@@ -107,6 +116,8 @@ export const tools: TamboTool[] = [
       description: z.string().optional(),
       status: z.string(),
       priority: z.string(),
+      assignees: z.array(z.string()).optional(),
+      comments: z.number().optional(),
     })),
   },
   {
@@ -115,7 +126,7 @@ export const tools: TamboTool[] = [
     tool: async (input: { title: string; description?: string; priority?: string }) => {
       try {
         const issue = await createIssue({
-          project_id: DEFAULT_PROJECT_ID,
+          project_id: projectId,
           title: input.title,
           description: input.description,
           priority: (input.priority as "urgent" | "high" | "medium" | "low" | "none") || "medium",
@@ -203,6 +214,9 @@ export const tools: TamboTool[] = [
   },
 
 ];
+
+// Keep backward compatibility if needed, but we should prefer createTools
+export const tools = createTools(DEFAULT_PROJECT_ID);
 
 // ============================================
 // COMPONENTS

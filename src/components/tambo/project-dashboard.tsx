@@ -8,16 +8,16 @@ import { LayoutDashboard, CheckCircle2, ListTodo, AlertCircle, Lightbulb } from 
 interface ProjectDashboardProps {
   projectName: string;
   activeSprintId?: string;
-  totalTasks: number;
-  completedTasks: number;
-  aiInsights: string[];
+  totalTasks?: number;
+  completedTasks?: number;
+  aiInsights?: string[];
 }
 
 const ProjectDashboardBase = ({ 
   projectName, 
-  totalTasks, 
-  completedTasks, 
-  aiInsights 
+  totalTasks = 0, 
+  completedTasks = 0, 
+  aiInsights = [] 
 }: ProjectDashboardProps) => {
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 

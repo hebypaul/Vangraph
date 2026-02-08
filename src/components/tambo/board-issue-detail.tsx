@@ -3,16 +3,22 @@
 import { useRouter } from "next/navigation";
 
 interface BoardIssueDetailProps {
-  issueId: string;
+  issueId?: string;
+  id?: string;
 }
 
-export function BoardIssueDetail({ issueId }: BoardIssueDetailProps) {
+export function BoardIssueDetail({ issueId, id }: BoardIssueDetailProps) {
     const router = useRouter();
+    
+    // Normalize ID
+    const displayId = issueId || id || "";
+
+    if (!displayId) return null;
 
     const openIssue = () => {
         // Append ticketId to current query params
         const searchParams = new URLSearchParams(window.location.search);
-        searchParams.set("ticketId", issueId);
+        searchParams.set("ticketId", displayId);
         router.push(`?${searchParams.toString()}`);
     };
 
@@ -22,7 +28,7 @@ export function BoardIssueDetail({ issueId }: BoardIssueDetailProps) {
                 <span>📄</span> Issue Details
             </h3>
             <p className="text-sm text-muted-foreground mb-3">
-                Action required for <span className="font-mono text-primary font-bold">{issueId}</span>
+                Action required for <span className="font-mono text-primary font-bold">{displayId}</span>
             </p>
             <button 
                 onClick={openIssue}

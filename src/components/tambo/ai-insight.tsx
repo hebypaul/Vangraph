@@ -11,8 +11,8 @@ export const aiInsightSchema = z.object({
   message: z.string().describe("The AI's insight message"),
   linkedTickets: z.array(z.object({
     id: z.string(),
-    title: z.string(),
-  })).optional().describe("Tickets mentioned in the insight"),
+    title: z.string().optional().default("Untitled Ticket"),
+  })).optional().default([]).describe("Tickets mentioned in the insight"),
   suggestion: z.string().optional().describe("A specific suggestion the AI is making"),
 });
 
@@ -21,7 +21,7 @@ export type AIInsightProps = z.infer<typeof aiInsightSchema>;
 const AIInsightBase = ({
   isStreaming = false,
   message,
-  linkedTickets,
+  linkedTickets = [],
   suggestion,
 }: AIInsightProps) => {
   return (

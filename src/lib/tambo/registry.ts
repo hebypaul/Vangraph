@@ -37,7 +37,7 @@ import {
 } from "./tools/mcp-tools";
 
 // Import context helpers
-import { contextHelpers } from "./context/helpers";
+import { contextHelpers } from "./context";
 
 // Define all tools for Tambo
 export const tamboTools = [
@@ -165,9 +165,6 @@ export const componentSchemas = {
     })),
   }),
 };
-
-// Export context helpers
-export { contextHelpers };
 
 // Type exports
 export type TamboTool = typeof tamboTools[number];

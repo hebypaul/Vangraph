@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { TamboProvider } from "@tambo-ai/react";
-import { components, tools } from "@/lib/tambo";
+import { components, createTools } from "@/lib/tambo";
 import { contextHelpers } from "@/lib/tambo/context";
 import { useMcpServers } from "@/components/tambo/mcp-config-modal";
 import { Sidebar } from '@/components/layout/sidebar';
@@ -21,12 +23,19 @@ export function DashboardProviderWrapper({
   membership: any;
 }) {
   const mcpServers = useMcpServers();
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get("projectId") || projects[0]?.id;
+
+  // Create tools with the active project ID context
+  const dynamicTools = useMemo(() => {
+    return createTools(projectId);
+  }, [projectId]);
 
   return (
     <TamboProvider
       apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY!}
       components={components}
-      tools={tools}
+      tools={dynamicTools}
       tamboUrl={process.env.NEXT_PUBLIC_TAMBO_URL}
       mcpServers={mcpServers}
       contextHelpers={contextHelpers}

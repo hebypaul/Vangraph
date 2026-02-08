@@ -10,17 +10,17 @@ import { Calendar, Zap, Users, AlertTriangle } from "lucide-react";
 export const phaseCardSchema = z.object({
   phaseName: z.string().describe("Phase name like 'Phase 2: Agentic Swarm'"),
   phaseNumber: z.number().describe("Phase number"),
-  dateRange: z.string().describe("Date range like 'Oct 10 - Oct 24'"),
-  description: z.string().describe("Phase description"),
+  dateRange: z.string().optional().describe("Date range like 'Oct 10 - Oct 24'"),
+  description: z.string().optional().default("").describe("Phase description"),
   steps: z.array(z.object({
     name: z.string(),
-    status: z.enum(["done", "in-progress", "pending"]),
-  })),
+    status: z.enum(["done", "in-progress", "pending"]).optional().default("pending"),
+  })).optional().default([]),
   metrics: z.object({
-    velocity: z.number().describe("Sprint velocity in points"),
-    teamActive: z.number().describe("Number of active team members"),
-    blockers: z.number().describe("Number of critical blockers"),
-  }),
+    velocity: z.number().optional().default(0).describe("Sprint velocity in points"),
+    teamActive: z.number().optional().default(0).describe("Number of active team members"),
+    blockers: z.number().optional().default(0).describe("Number of critical blockers"),
+  }).optional().default({}),
 });
 
 export type PhaseCardProps = z.infer<typeof phaseCardSchema>;
@@ -30,8 +30,8 @@ const PhaseCardBase = ({
   phaseNumber,
   dateRange,
   description,
-  steps,
-  metrics,
+  steps = [],
+  metrics = { velocity: 0, teamActive: 0, blockers: 0 },
 }: PhaseCardProps) => {
   return (
     <div className="vg-card max-w-2xl">
