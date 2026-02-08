@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Building2, Loader2, Rocket, Link as LinkIcon, ArrowRight, Users, Clock } from 'lucide-react';
 import { createWorkspace } from '@/actions/workspace';
 import { acceptInvite } from '@/actions/invite';
+import { completeOnboarding } from '@/actions/profile';
 
 type OnboardingStep = 'choose' | 'create' | 'join';
 
@@ -62,7 +63,9 @@ export default function WorkspaceOnboardingPage() {
   }
 
   async function handleSkip() {
-    // Just redirect to dashboard - user will see empty state
+    setLoading(true);
+    // Mark onboarding complete so user doesn't get redirected back
+    await completeOnboarding();
     router.push('/');
   }
 

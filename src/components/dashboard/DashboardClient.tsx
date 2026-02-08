@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Sidebar } from '@/components/layout/sidebar';
-import { Header } from '@/components/layout/header';
-import { UserNav } from '@/components/auth/UserNav';
-import { AgentStatusCardBase } from '@/components/tambo/agent-status';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/atomic/button/Button';
 import { Progress } from '@/components/atomic/feedback/Progress';
@@ -19,7 +16,7 @@ import {
   FolderKanban,
   CalendarDays,
   BarChart3,
-  Bot,
+
   Zap,
   CheckCircle2,
   Clock,
@@ -106,12 +103,7 @@ const getQuickActions = (role?: UserRole | null) => {
   );
 };
 
-// Mock agents data - would connect to agent monitoring service
-const agents = [
-  { name: 'Coder Agent', type: 'coder' as const, status: 'active' as const },
-  { name: 'QA Agent', type: 'qa' as const, status: 'idle' as const },
-  { name: 'Architect Agent', type: 'architect' as const, status: 'reviewing' as const },
-];
+
 
 export function DashboardClient({ user, role, workspaceId }: DashboardClientProps) {
   const [stats, setStats] = useState<ProjectStats | null>(null);
@@ -151,29 +143,33 @@ export function DashboardClient({ user, role, workspaceId }: DashboardClientProp
   const displayName = user.fullName || user.email.split('@')[0];
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar user={{ fullName: user.fullName, email: user.email, avatarUrl: user.avatarUrl }} />
-      <div className="flex-1 ml-(--sidebar-width) flex flex-col">
-        <Header 
-          projectName={workspaceName || 'Vangraph'} 
-          sprintName={stats?.active_sprint?.name || 'Sprint 1'}
-        >
-          {/* User navigation in header */}
-          <div className="ml-auto">
-            <UserNav 
-              user={{
-                email: user.email,
-                fullName: user.fullName,
-                avatarUrl: user.avatarUrl,
-              }}
-              role={role}
-              workspaceName={workspaceName}
-            />
+    <div className="flex-1 p-8 overflow-auto">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Welcome Section */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              Welcome back, {displayName}!
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Here's what's happening with your projects today.
+            </p>
           </div>
-        </Header>
+          <div className="flex items-center gap-3">
+            {role && (
+                  <span className={`px-3 py-1 text-sm font-medium rounded-full border ${getRoleBadgeColor(role)}`}>
+                    <Shield className="w-3.5 h-3.5 inline mr-1" />
+                    {getRoleDisplayName(role)}
+                  </span>
+                )}
+                {workspaceName && (
+                  <span className="text-muted-foreground">
+                    in <strong>{workspaceName}</strong>
+                  </span>
+                )}
+          </div>
+        </div>
 
-        <main className="flex-1 p-8 overflow-auto">
-          <div className="max-w-6xl mx-auto space-y-8">
             {/* Personalized Hero Section */}
             <section className="text-center mb-8">
               <div className="inline-flex items-center gap-2 mb-4">
@@ -314,33 +310,7 @@ export function DashboardClient({ user, role, workspaceId }: DashboardClientProp
               </div>
             </section>
 
-            {/* AI Agents Status - Only for managers+ */}
-            {(role === 'manager' || role === 'admin' || role === 'owner') && (
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-                    <Bot className="w-5 h-5 text-vg-primary" />
-                    AI Agents
-                  </h2>
-                  <Link href="/agents">
-                    <Button variant="ghost" size="sm">
-                      View All
-                      <ArrowRight className="w-4 h-4 ml-1" />
-                    </Button>
-                  </Link>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  {agents.map((agent) => (
-                    <AgentStatusCardBase
-                      key={agent.name}
-                      name={agent.name}
-                      type={agent.type}
-                      status={agent.status}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+
 
             {/* Quick Actions - Filtered by role */}
             <section>
@@ -440,8 +410,6 @@ export function DashboardClient({ user, role, workspaceId }: DashboardClientProp
                 ))}
               </div>
             </section>
-          </div>
-        </main>
       </div>
     </div>
   );
