@@ -28,7 +28,13 @@ export function DraggableCard({ issue, onClick }: DraggableCardProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: issue.id });
+  } = useSortable({ 
+    id: issue.id,
+    data: {
+      type: "Issue",
+      issue,
+    }
+  });
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -56,10 +62,9 @@ export function DraggableCard({ issue, onClick }: DraggableCardProps) {
       ref={setNodeRef}
       style={style}
       className={clsx(
-        "bg-card p-4 rounded-lg border shadow-sm",
+        "vg-card group",
         "touch-none cursor-grab active:cursor-grabbing",
         "transition-all duration-200",
-        "hover:border-primary/50 hover:shadow-md",
         // Dragging state - Tailwind v4 compliant
         isDragging && [
           "opacity-50",
@@ -78,7 +83,7 @@ export function DraggableCard({ issue, onClick }: DraggableCardProps) {
       {/* Header: ID + Priority + Drag Handle */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
-          <GripVertical className="w-3 h-3 text-muted-foreground/50" />
+          <GripVertical className="w-3 h-3 text-muted-foreground/50 group-hover:text-primary/50 transition-colors" />
           <span className="text-[10px] text-muted-foreground font-mono">
             {issue.key}
           </span>
@@ -91,7 +96,7 @@ export function DraggableCard({ issue, onClick }: DraggableCardProps) {
       </div>
 
       {/* Title */}
-      <h4 className="text-sm font-semibold text-foreground leading-tight mb-2 line-clamp-2">
+      <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-tight mb-2 line-clamp-2">
         {issue.title}
       </h4>
 
@@ -102,8 +107,15 @@ export function DraggableCard({ issue, onClick }: DraggableCardProps) {
         </p>
       )}
 
+      {/* Progress bar for in-progress tasks */}
+      {issue.status === "in_progress" && (
+        <div className="vg-progress mb-3">
+          <div className="vg-progress-bar" style={{ width: "65%" }} />
+        </div>
+      )}
+
       {/* Footer: Assignee, Due Date, Estimate */}
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-xs pt-1 border-t border-border/50">
         <div className="flex items-center gap-2">
           {/* Assignee Avatar */}
           {issue.assignee && (

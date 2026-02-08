@@ -27,7 +27,10 @@ import {
   Plus,
   LayoutGrid,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Filter,
+  List,
+  Search,
 } from "lucide-react";
 
 // Import services
@@ -35,8 +38,13 @@ import {
   getIssuesByStatus,
   createIssue,
   updateIssuePosition,
+  calculatePosition,
   subscribeToIssues,
 } from "@/services/supabase/issues";
+
+import { ChatInput } from "@/components/layout/chat-input";
+import { SearchInput } from "@/components/atomic/input/SearchInput";
+import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/atomic/overlay/Dropdown";
 import { getUserWorkspaces } from "@/actions/workspace";
 import { getProjects } from "@/actions/projects";
 import type { IssueWithKey, IssueStatus, Priority, Project } from "@/types";
@@ -50,6 +58,15 @@ const COLUMNS: { id: IssueStatus; title: string }[] = [
   { id: "done", title: "DONE" },
 ];
 
+const columnColors: Record<string, string> = {
+  backlog: "bg-muted-foreground",
+  todo: "bg-slate-400",
+  in_progress: "bg-vg-primary",
+  in_review: "bg-vg-warning",
+  done: "bg-vg-success",
+  cancelled: "bg-vg-danger",
+};
+
 export default function BoardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -59,6 +76,8 @@ export default function BoardPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projectIdParam);
   const [issues, setIssues] = useState<Record<IssueStatus, IssueWithKey[]> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [activeIssue, setActiveIssue] = useState<IssueWithKey | null>(null);
 
   // Form state
@@ -141,6 +160,35 @@ export default function BoardPage() {
     }
   }, [selectedProjectId, loadIssues]); // Check dependency issues
 
+  // Filter issues by search
+  const getFilteredTasks = (columnId: IssueStatus): IssueWithKey[] => {
+    if (!issues) return [];
+    const columnTasks = issues[columnId] || [];
+    if (!searchQuery) return columnTasks;
+
+    return columnTasks.filter(
+      (task) =>
+        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.key.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
+
+  // Get all task IDs for a column
+  const getColumnTaskIds = (columnId: IssueStatus): string[] => {
+    return getFilteredTasks(columnId).map((t) => t.id);
+  };
+
+  // Find which column an issue is in
+  const findColumnForIssue = (issueId: string): IssueStatus | null => {
+    if (!issues) return null;
+    for (const [status, statusIssues] of Object.entries(issues)) {
+      if (statusIssues.some((i) => i.id === issueId)) {
+        return status as IssueStatus;
+      }
+    }
+    return null;
+  };
+
   // Handle create task
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,62 +220,93 @@ export default function BoardPage() {
   // Drag handlers
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const activeData = active.data.current?.issue as IssueWithKey;
-    if (activeData) {
-      setActiveIssue(activeData);
+    const issueId = active.id as string;
+    
+    // Find the issue being dragged
+    if (issues) {
+      for (const statusIssues of Object.values(issues)) {
+        const found = statusIssues.find((i) => i.id === issueId);
+        if (found) {
+          setActiveIssue(found);
+          break;
+        }
+      }
     }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    
-    if (!over || !selectedProjectId) {
-      setActiveIssue(null);
-      return;
-    }
+    setActiveIssue(null);
+
+    if (!over || !selectedProjectId || !issues) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    const activeData = active.data.current?.issue as IssueWithKey;
-    if (!activeData) {
-      setActiveIssue(null);
-      return;
+    // Determine target column
+    const sourceColumn = findColumnForIssue(activeId);
+    let targetColumn: IssueStatus | null = COLUMNS.find((c) => c.id === overId)?.id || null;
+    
+    // If dropped on another card, find its column
+    if (!targetColumn) {
+      targetColumn = findColumnForIssue(overId);
     }
 
-    const currentStatus = active.data.current?.sortable?.containerId || activeData.status;
-    const newStatus = over.data.current?.sortable?.containerId || over.id;
+    if (!sourceColumn || !targetColumn) return;
 
-    const isValidStatus = (s: string): s is IssueStatus => 
-      ['backlog', 'todo', 'in_progress', 'in_review', 'done', 'cancelled'].includes(s);
-
-    if (!isValidStatus(newStatus)) {
-        setActiveIssue(null);
-        return;
+    // Get target column issues (excluding the dragged item to compute correct neighbors)
+    const targetIssuesWithoutActive = (issues[targetColumn] || []).filter(i => i.id !== activeId);
+    
+    // Find insertion index in the filtered list
+    let insertIndex = targetIssuesWithoutActive.length; // Default to end
+    if (overId !== targetColumn) {
+      const overIndex = targetIssuesWithoutActive.findIndex((i) => i.id === overId);
+      if (overIndex !== -1) {
+        insertIndex = overIndex;
+      }
     }
 
-    if (currentStatus !== newStatus) {
-        const oldIssues = { ...issues } as Record<IssueStatus, IssueWithKey[]>;
-        const sourceColumn = [...(oldIssues[currentStatus as IssueStatus] || [])];
-        const destColumn = [...(oldIssues[newStatus as IssueStatus] || [])];
+    // Calculate new position using fractional indexing
+    const positionAbove = insertIndex > 0 ? (targetIssuesWithoutActive[insertIndex - 1]?.position ?? (insertIndex - 1) * 1000) : null;
+    const positionBelow = insertIndex < targetIssuesWithoutActive.length ? (targetIssuesWithoutActive[insertIndex]?.position ?? insertIndex * 1000) : null;
+    const newPosition = calculatePosition(positionAbove, positionBelow);
 
-        const movedIssue = { ...activeData, status: newStatus };
-        
-        setIssues({
-            ...oldIssues,
-            [currentStatus as IssueStatus]: sourceColumn.filter(i => i.id !== activeId),
-            [newStatus as IssueStatus]: [...destColumn, movedIssue],
-        });
+    // Optimistic update
+    const updatedIssues = { ...issues };
+    
+    // Remove from source
+    updatedIssues[sourceColumn] = updatedIssues[sourceColumn].filter((i) => i.id !== activeId);
+    
+    // Find the issue being moved
+    const movingIssue = issues[sourceColumn].find((i) => i.id === activeId);
+    if (!movingIssue) return;
 
-        try {
-            await updateIssuePosition(activeId, newStatus, 0); 
-        } catch (error) {
-            console.error("Failed to update issue position:", error);
-            setIssues(oldIssues); 
-        }
+    // Add to target with new position
+    const updatedIssue = { ...movingIssue, status: targetColumn, position: newPosition };
+    updatedIssues[targetColumn] = [
+      ...updatedIssues[targetColumn].slice(0, insertIndex),
+      updatedIssue,
+      ...updatedIssues[targetColumn].slice(insertIndex),
+    ].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+    setIssues(updatedIssues);
+
+    // Persist to Supabase
+    try {
+      await updateIssuePosition(activeId, targetColumn, newPosition);
+    } catch (error) {
+      console.error("Failed to update issue position:", error);
+      // Revert on error
+      await loadIssues();
     }
+  };
 
-    setActiveIssue(null);
+
+  // Open issue detail modal
+  const openIssueDetail = (issueId: string) => {
+    if (selectedProjectId) {
+      router.push(`/board?project=${selectedProjectId}&ticketId=${issueId}`, { scroll: false });
+    }
   };
 
 
@@ -249,94 +328,147 @@ export default function BoardPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Header */}
+      {/* Search & Filters Toolbar */}
       <div className="flex-none px-6 py-4 border-b border-border bg-card/50 backdrop-blur-sm z-10">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-foreground">Board</h1>
+            <h1 className="text-xl font-bold text-foreground">Board</h1>
             
-            {projects.length > 0 ? (
-                <div className="w-[200px]">
-                    <Select
-                        title="Project"
-                        options={projects.map(p => ({ label: p.name, value: p.id }))}
-                        value={selectedProjectId || ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setSelectedProjectId(val);
-                            router.push(`/board?project=${val}`);
-                        }}
-                    />
-                </div>
-            ) : (
-                <Badge variant="warning" className="gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    No Projects Found
-                </Badge>
+            <div className="h-6 w-px bg-border mx-2 hidden md:block" />
+
+            {projects.length > 0 && (
+              <div className="w-[180px]">
+                <Select
+                  title="Project"
+                  options={projects.map(p => ({ label: p.name, value: p.id }))}
+                  value={selectedProjectId || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedProjectId(val);
+                    router.push(`/board?project=${val}`);
+                  }}
+                />
+              </div>
             )}
           </div>
 
           <div className="flex items-center gap-3">
-            {selectedProjectId && (
-                <Button 
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="gap-2 bg-gradient-to-r from-vg-primary to-vg-purple hover:opacity-90 transition-opacity"
-                >
-                    <Plus className="w-4 h-4" />
-                    New Task
+            <div className="w-[240px]">
+              <SearchInput
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <Dropdown
+              trigger={
+                <Button variant="outline" className="gap-2">
+                  <Filter className="w-4 h-4" />
+                  Filter
                 </Button>
+              }
+            >
+              <DropdownItem onClick={() => {}}>Assignee</DropdownItem>
+              <DropdownItem onClick={() => {}}>Priority</DropdownItem>
+              <DropdownSeparator />
+              <DropdownItem onClick={() => {}}>Clear filters</DropdownItem>
+            </Dropdown>
+
+            <div className="flex bg-muted p-1 rounded-lg">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-1.5 rounded-md transition-all ${
+                  viewMode === "grid" ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 rounded-md transition-all ${
+                  viewMode === "list" ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+
+            {selectedProjectId && (
+              <Button 
+                onClick={() => setIsCreateModalOpen(true)}
+                className="gap-2 bg-gradient-to-r from-vg-primary to-vg-purple hover:opacity-90 transition-opacity"
+              >
+                <Plus className="w-4 h-4" />
+                New Task
+              </Button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
-        {!selectedProjectId ? (
-             <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border/50 rounded-2xl bg-muted/20">
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                    <LayoutGrid className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">No Project Selected</h3>
-                <p className="text-muted-foreground max-w-md mb-6">
-                    Select an existing project or create a new one to view its board.
-                </p>
-                <Button onClick={() => router.push('/projects')}>
-                    Go to Projects
-                </Button>
+      {/* Kanban Board Container */}
+      <div className="flex-1 overflow-hidden flex flex-col relative">
+        <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+          {!selectedProjectId ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border/50 rounded-2xl bg-muted/20">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <LayoutGrid className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No Project Selected</h3>
+              <p className="text-muted-foreground max-w-md mb-6">
+                Select an existing project or create a new one to view its board.
+              </p>
+              <Button onClick={() => router.push('/projects')}>
+                Go to Projects
+              </Button>
             </div>
-        ) : (
-            <div className="flex h-full gap-6 min-w-max">
-            <DndContext
+          ) : (
+            <div className="flex h-full gap-6 min-w-max pb-8">
+              <DndContext
                 sensors={sensors}
                 collisionDetection={closestCorners}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
-            >
+              >
                 {COLUMNS.map((col) => (
-                <DroppableColumn
+                  <DroppableColumn
                     key={col.id}
                     id={col.id}
                     title={col.title}
-                    count={issues?.[col.id]?.length || 0}
-                    colorClass="" // You might want to map this based on your columnColors if needed or existing logic
-                    itemIds={issues?.[col.id]?.map(i => i.id) || []}
-                >
-                    {issues?.[col.id]?.map((issue) => (
-                        <DraggableCard key={issue.id} issue={issue} />
+                    count={getFilteredTasks(col.id).length}
+                    colorClass={columnColors[col.id]}
+                    itemIds={getColumnTaskIds(col.id)}
+                  >
+                    {getFilteredTasks(col.id).map((issue) => (
+                      <DraggableCard 
+                        key={issue.id} 
+                        issue={issue} 
+                        onClick={() => openIssueDetail(issue.id)}
+                      />
                     ))}
-                </DroppableColumn>
+                  </DroppableColumn>
                 ))}
 
                 <DragOverlay>
-                {activeIssue ? (
+                  {activeIssue ? (
                     <DraggableCard issue={activeIssue} />
-                ) : null}
+                  ) : null}
                 </DragOverlay>
-            </DndContext>
+              </DndContext>
             </div>
-        )}
+          )}
+        </div>
+
+        {/* AI Chat / Bottom Input */}
+        <div className="p-4 bg-linear-to-t from-background via-background/80 to-transparent">
+          <ChatInput 
+            placeholder="Ask AI to manage tasks... (e.g. 'Move UI fixes to In Progress')"
+          />
+        </div>
       </div>
+
+      <IssueDetailModal onSave={loadIssues} />
 
       <Modal
         isOpen={isCreateModalOpen}

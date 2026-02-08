@@ -26,7 +26,16 @@ export async function getIssues(
 ): Promise<IssueWithKey[]> {
   const query = supabase
     .from('issues')
-    .select('*')
+    .select(`
+      *,
+      assignee:profiles!assignee_id(id, email, full_name, avatar_url),
+      reporter:profiles!reporter_id(id, email, full_name, avatar_url),
+      sprint:sprints(id, name, status, start_date, end_date),
+      module:modules(id, name, color, description),
+      issue_labels(
+        label:labels(id, name, color)
+      )
+    `)
     .eq('project_id', projectId)
     .eq('archived', filters.archived ?? false)
     .order('created_at', { ascending: false });
@@ -63,10 +72,19 @@ export async function getIssues(
   
   const projectKey = project?.key || 'VAN';
   
-  return (data || []).map(issue => ({
-    ...(issue as Issue),
-    key: `${projectKey}-${String((issue as Issue).sequence_id).padStart(3, '0')}`
-  }));
+  return (data || []).map(issue => {
+    // Flatten labels from the many-to-many join
+    const labels = (issue.issue_labels || [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((row: any) => row.label)
+      .filter(Boolean);
+
+    return {
+      ...(issue as any),
+      labels,
+      key: `${projectKey}-${String((issue as any).sequence_id).padStart(3, '0')}`
+    } as IssueWithKey;
+  });
 }
 
 // Get single issue by ID with all relations
