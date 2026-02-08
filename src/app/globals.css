@@ -222,8 +222,36 @@
 }
 
 /* ============================================
+   CUSTOM SCROLLBARS
+   ============================================ */
+
+/* Thin scrollbar for board and columns */
+.vg-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+.vg-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.vg-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.vg-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--muted-foreground);
+  border-radius: 20px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.vg-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: var(--foreground);
+}
+
+/* ============================================
    ANIMATIONS
    ============================================ */
+
+/* ... (previous animations remain unchanged) ... */
 
 @keyframes flash {
   0%, 100% {
@@ -273,4 +301,11 @@
 .vg-agent-active::before {
   content: '';
   @apply absolute inset-0 rounded-xl bg-vg-success/10 animate-pulse;
+}
+
+/* Background Pattern */
+.bg-grid-pattern {
+  background-image: radial-gradient(rgba(100, 116, 139, 0.2) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: center;
 }

@@ -128,7 +128,7 @@ export function Sidebar({ className, user, projects = [] }: SidebarProps) {
       </div>
 
       {/* Main Navigation */}
-      <div className="flex-1 py-4 overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 py-4 overflow-y-auto overflow-x-hidden vg-scrollbar">
         <div className={cn(
           "px-3 mb-2 transition-opacity duration-200",
           isExpanded ? "opacity-100" : "opacity-0"
@@ -228,7 +228,7 @@ export function Sidebar({ className, user, projects = [] }: SidebarProps) {
                 </Link>
 
                 <Link
-                   href="/projects" 
+                   href="/projects?create=true" 
                    className="flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-medium text-vg-primary hover:bg-vg-primary/10"
                 >
                    <Plus className="w-3 h-3" />

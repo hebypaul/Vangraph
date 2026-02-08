@@ -46,6 +46,7 @@ import {
   subscribeToIssues,
 } from "@/services/supabase/issues";
 
+import { useDraggableScroll } from "@/hooks/use-draggable-scroll";
 import { SearchInput } from "@/components/atomic/input/SearchInput";
 import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/atomic/overlay/Dropdown";
 import { getUserWorkspaces } from "@/actions/workspace";
@@ -104,6 +105,9 @@ export default function BoardPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Drag to scroll hook
+  const { ref: scrollContainerRef, isDragging: isScrolling } = useDraggableScroll();
 
   // Load projects
   useEffect(() => {
@@ -424,7 +428,13 @@ export default function BoardPage() {
 
       {/* Kanban Board Container */}
       <div className="flex-1 overflow-hidden flex flex-col relative">
-        <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+        <div 
+          ref={scrollContainerRef}
+          className={cn(
+            "flex-1 overflow-x-auto overflow-y-hidden p-6 vg-scrollbar bg-grid-pattern",
+            isScrolling ? "cursor-grabbing" : "cursor-grab"
+          )}
+        >
           {!selectedProjectId ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-border/50 rounded-2xl bg-muted/20">
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -439,7 +449,7 @@ export default function BoardPage() {
               </Button>
             </div>
           ) : (
-            <div className="flex h-full gap-6 min-w-max pb-8">
+            <div className="flex h-full gap-6 min-w-max pb-4">
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCorners}

@@ -74,9 +74,9 @@ export function DroppableColumn({
       </div>
 
       {/* Sortable Items Container */}
-      <div className="flex-1 px-3 pb-3 overflow-y-auto">
+      <div className="flex-1 px-3 pb-3 overflow-y-auto vg-scrollbar relative scroll-smooth">
         <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-          <div className="flex flex-col gap-2 min-h-[100px]">
+          <div className="flex flex-col gap-2 min-h-[100px] pb-6">
             {children}
           </div>
         </SortableContext>

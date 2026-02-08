@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 
 import { Button } from "@/components/atomic/button/Button";
 import { SearchInput } from "@/components/atomic/input/SearchInput";
@@ -44,12 +45,23 @@ function timeAgo(dateString: string) {
 }
 
 export default function ProjectsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Auto-open modal if ?create=true
+  useEffect(() => {
+    if (searchParams.get('create') === 'true') {
+      setIsCreateModalOpen(true);
+      // Clean up URL
+      router.replace('/projects');
+    }
+  }, [searchParams, router]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -187,7 +199,7 @@ export default function ProjectsPage() {
                 return (
                   <Link
                     key={project.id}
-                    href={`/board?project=${project.key}`}
+                    href={`/board?project=${project.id}`}
                     className="vg-card group flex flex-col gap-4 hover:border-vg-primary/50 transition-colors"
                   >
                     {/* Project Header */}

@@ -40,6 +40,8 @@ export function DashboardProviderWrapper({
     return createContextHelpers(activeProject, pathname);
   }, [activeProject, pathname]);
 
+  const isBoard = pathname?.includes('/board');
+
   return (
     <TamboProvider
       apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY!}
@@ -49,12 +51,12 @@ export function DashboardProviderWrapper({
       mcpServers={mcpServers}
       contextHelpers={dynamicContextHelpers}
     >
-      <div className="flex min-h-screen bg-background text-foreground">
+      <div className={`flex bg-background text-foreground ${isBoard ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
         <Sidebar 
           user={sidebarUser}
           projects={projects}
         />
-        <div className="flex-1 ml-(--sidebar-width) flex flex-col">
+        <div className="flex-1 ml-(--sidebar-width) flex flex-col min-w-0">
           <Header 
             user={headerUser}
             role={membership?.role}
@@ -62,7 +64,7 @@ export function DashboardProviderWrapper({
             projectName="Vangraph"
             sprintName="Sprint 1"
           />
-          <main className="flex-1 overflow-auto bg-vg-surface">
+          <main className={`flex-1 bg-vg-surface ${isBoard ? 'overflow-hidden' : 'overflow-auto'} min-w-0`}>
             <div className="bg-white/5 h-full">
               {children}
             </div>
