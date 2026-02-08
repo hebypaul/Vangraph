@@ -18,23 +18,37 @@ export const activeWorkspaceHelper = () => ({
   role: "admin",
 });
 
-// 3. Active Project Helper
-export const activeProjectHelper = async () => {
-  // TODO: Get actual project ID from context/URL if possible, defaulting to env or constant
-  // For now using the mock implementation which is robust enough for verification
-  const projectId = "proj-1";
-  // We can optimize this later to use the actual active project ID from the request context
+// 3. Active Project Helper Factory
+export const createActiveProjectHelper = (project: { id: string; name: string; key?: string } | null) => async () => {
+  if (!project) {
+    return {
+      id: "unknown",
+      name: "No Project Selected",
+      key: "N/A",
+      error: "No active project context found",
+    };
+  }
   
+  // We can try to fetch more stats here if needed, or just return the basic info
+  // For now, let's return the basic info + fetch stats if possible, but safely catch
+  let stats = { total_issues: 0, completion_rate: 0 };
+  try {
+     const fetchedStats = await getProjectStats(project.id);
+     stats = {
+        total_issues: fetchedStats.total_issues,
+        completion_rate: fetchedStats.completion_rate
+     };
+  } catch (e) {
+     // Ignore stats fetch error context
+  }
+
   return {
-    id: projectId,
-    name: "Vangraph",
-    key: "VAN",
+    id: project.id,
+    name: project.name,
+    key: project.key || "PRJ",
     tech_stack: ["Next.js", "TypeScript", "Supabase"],
     active_sprint: null,
-    stats: {
-      total_issues: 0,
-      completion_rate: 0,
-    },
+    stats,
   };
 };
 
@@ -49,11 +63,18 @@ export const userContextHelper = () => ({
   is_oncall: false,
 });
 
-// ... (other helpers kept simple/mocked for now to avoid dependency hell)
+// Factory for all helpers
+export const createContextHelpers = (project: { id: string; name: string; key?: string } | null) => ({
+  current_time: currentTimeHelper,
+  active_workspace: activeWorkspaceHelper,
+  active_project: createActiveProjectHelper(project),
+  user_context: userContextHelper,
+});
 
+// Legacy export for backward compatibility (if used elsewhere)
 export const contextHelpers = {
   current_time: currentTimeHelper,
   active_workspace: activeWorkspaceHelper,
-  active_project: activeProjectHelper,
+  active_project: async () => ({ id: "default", name: "Default Project" }), // Placeholder
   user_context: userContextHelper,
 };
