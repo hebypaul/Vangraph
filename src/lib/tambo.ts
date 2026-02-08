@@ -25,7 +25,7 @@ import { z } from "zod";
 
 // Import services
 import { getProjectStats } from "@/services/supabase/projects";
-import { getIssues, createIssue, updateIssue } from "@/services/supabase/issues";
+import { getIssues, createIssue, updateIssue, resolveIssueId } from "@/services/supabase/issues";
 import { DEFAULT_PROJECT_ID } from "./constants";
 
 // ============================================
@@ -170,23 +170,33 @@ export const createTools = (projectId: string = DEFAULT_PROJECT_ID): TamboTool[]
   },
   {
     name: "updateTaskStatus",
-    description: "Move a task to a different status column (e.g., move to in-progress, done, etc.)",
+    description: "Move a task to a different status column. MUST use exact status keys.",
     tool: async (input: { issueId: string; newStatus: string }) => {
       try {
+        // Resolve ID (handles "VAN-123" -> UUID)
+        const dbId = await resolveIssueId(input.issueId, projectId);
+        if (!dbId) {
+          return { success: false, error: `Issue not found: '${input.issueId}'. Check if the ID or Project Key is correct.` };
+        }
+
         // Status validation
         const validStatuses = ["backlog", "todo", "in_progress", "in_review", "done", "cancelled"];
         const statusMap: Record<string, string> = {
           "in-progress": "in_progress",
           "review": "in_review",
           "in-review": "in_review",
+          "todo": "todo", 
+          "done": "done",
+          "backlog": "backlog",
+          "cancelled": "cancelled"
         };
         const mappedStatus = statusMap[input.newStatus.toLowerCase()] || input.newStatus.toLowerCase();
         
         if (!validStatuses.includes(mappedStatus)) {
-          return { success: false, error: `Invalid status. Use: ${validStatuses.join(", ")}` };
+          return { success: false, error: `Invalid status '${input.newStatus}'. Mapped to '${mappedStatus}'. Valid options: ${validStatuses.join(", ")}` };
         }
         
-        const issue = await updateIssue(input.issueId, { 
+        const issue = await updateIssue(dbId, { 
           status: mappedStatus as "backlog" | "todo" | "in_progress" | "in_review" | "done" | "cancelled"
         });
         
@@ -196,13 +206,16 @@ export const createTools = (projectId: string = DEFAULT_PROJECT_ID): TamboTool[]
           title: issue.title,
           newStatus: issue.status,
         };
-      } catch (error) {
-        return { success: false, error: `Failed to update: ${error}` };
+      } catch (error: any) {
+        const errorMessage = error?.message || JSON.stringify(error);
+        console.error("Tool Execution Error (updateTaskStatus):", errorMessage);
+        return { success: false, error: `Failed to update: ${errorMessage}` };
       }
     },
     inputSchema: z.object({
-      issueId: z.string().describe("The issue ID to update (e.g., '1' or the database ID)"),
-      newStatus: z.enum(["backlog", "todo", "in_progress", "in_review", "done"]).describe("The new status"),
+      issueId: z.string().describe("The issue ID to update (e.g., 'VA-123' or the database UUID)"),
+      newStatus: z.enum(["backlog", "todo", "in_progress", "in_review", "done", "cancelled", "review", "in-progress"])
+        .describe("The target column ID. Map user intent (e.g. 'Review') to these exact keys."),
     }),
     outputSchema: z.object({
       success: z.boolean(),
