@@ -5,10 +5,8 @@ import { DashboardProviderWrapper } from '@/components/providers/dashboard-provi
 
 export default async function DashboardLayout({
   children,
-  sidebarUser, // This prop seems unused in the signature below, but included in logic
 }: {
   children: React.ReactNode;
-  sidebarUser?: any; // Fix type definition to match actual usage if needed
 }) {
   const { user, profile, membership } = await getCurrentUser();
 

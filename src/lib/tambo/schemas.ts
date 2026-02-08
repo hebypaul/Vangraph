@@ -52,7 +52,11 @@ export const phaseCardSchema = z.object({
     velocity: z.number().optional().default(0).describe("Sprint velocity in points"),
     teamActive: z.number().optional().default(0).describe("Number of active team members"),
     blockers: z.number().optional().default(0).describe("Number of critical blockers"),
-  }).optional().default({}),
+  }).optional().default({
+    velocity: 0,
+    teamActive: 0,
+    blockers: 0,
+  }),
 });
 
 export type PhaseCard = z.infer<typeof phaseCardSchema>;
