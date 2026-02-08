@@ -26,17 +26,7 @@ export const taskCardSchema = z.object({
 
 export type TaskCardProps = z.infer<typeof taskCardSchema>;
 
-// ============================================
-// AGENT SCHEMAS
-// ============================================
 
-export const agentStatusSchema = z.object({
-  name: z.string().describe("Agent name like 'Coder Agent' or 'QA Agent'"),
-  type: z.enum(["coder", "qa", "architect", "security"]).describe("Agent type for icon selection"),
-  status: z.enum(["active", "idle", "reviewing"]).describe("Current agent status"),
-});
-
-export type AgentStatus = z.infer<typeof agentStatusSchema>;
 
 // ============================================
 // PHASE/ROADMAP SCHEMAS

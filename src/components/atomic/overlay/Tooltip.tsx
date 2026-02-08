@@ -11,6 +11,7 @@ export interface TooltipProps {
   side?: "top" | "bottom" | "left" | "right";
   delay?: number;
   className?: string;
+  disabled?: boolean;
 }
 
 export function Tooltip({
@@ -19,6 +20,7 @@ export function Tooltip({
   side = "top",
   delay = 300,
   className,
+  disabled = false,
 }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -26,6 +28,8 @@ export function Tooltip({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const show = () => {
+    if (disabled) return;
+    
     timeoutRef.current = setTimeout(() => {
       if (triggerRef.current) {
         const rect = triggerRef.current.getBoundingClientRect();
@@ -77,10 +81,10 @@ export function Tooltip({
         {children}
       </div>
       
-      {isVisible && createPortal(
+      {isVisible && !disabled && createPortal(
         <div
           className={cn(
-            "fixed z-50 px-2 py-1 text-xs bg-popover border border-border rounded shadow-lg pointer-events-none",
+            "fixed z-50 px-2 py-1 text-xs bg-popover border border-border rounded shadow-lg pointer-events-none text-popover-foreground",
             "animate-in fade-in-0 zoom-in-95 duration-100",
             side === "top" && "-translate-x-1/2 -translate-y-full",
             side === "bottom" && "-translate-x-1/2",

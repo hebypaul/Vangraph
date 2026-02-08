@@ -15,9 +15,8 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 
-import { Sidebar } from "@/components/layout/sidebar";
-import { Header } from "@/components/layout/header";
-import { AgentStatusCardBase } from "@/components/tambo/agent-status";
+
+
 import { ChatInput } from "@/components/layout/chat-input";
 import { Button } from "@/components/atomic/button/Button";
 import { SearchInput } from "@/components/atomic/input/SearchInput";
@@ -64,12 +63,7 @@ const columnColors: Record<string, string> = {
   cancelled: "bg-vg-danger",
 };
 
-// Mock agents data
-const agents = [
-  { name: "Coder Agent", type: "coder" as const, status: "active" as const },
-  { name: "QA Agent", type: "qa" as const, status: "idle" as const },
-  { name: "Architect Agent", type: "architect" as const, status: "reviewing" as const },
-];
+
 
 function BoardContent() {
   const router = useRouter();
@@ -277,11 +271,8 @@ function BoardContent() {
     : 0;
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <div className="flex-1 ml-(--sidebar-width) flex flex-col">
-        <Header projectName="Vangraph" sprintName="Sprint 1" />
-
+    <>
+      <div className="flex flex-col h-full">
         <main className="flex-1 p-6 overflow-auto">
           {/* Toolbar */}
           <div className="flex items-center justify-between mb-6">
@@ -345,17 +336,7 @@ function BoardContent() {
             </div>
           </div>
 
-          {/* Agent Status Row */}
-          <div className="flex gap-4 mb-6">
-            {agents.map((agent) => (
-              <AgentStatusCardBase
-                key={agent.name}
-                name={agent.name}
-                type={agent.type}
-                status={agent.status}
-              />
-            ))}
-          </div>
+
 
           {/* Kanban Board with DnD */}
           <DndContext
@@ -501,7 +482,7 @@ function BoardContent() {
           </form>
         </div>
       </Modal>
-    </div>
+    </>
   );
 }
 

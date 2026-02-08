@@ -5,7 +5,7 @@
 
 import {
   taskCardSchema,
-  agentStatusSchema,
+
   phaseCardSchema,
   projectDashboardSchema,
   aiInsightSchema,
@@ -13,7 +13,7 @@ import {
   sprintBoardSchema,
 } from "./tambo/schemas";
 import { TaskCard } from "@/components/tambo/task-card";
-import { AgentStatusCard } from "@/components/tambo/agent-status";
+
 import { PhaseCard } from "@/components/tambo/phase-card";
 import { ProjectDashboard } from "@/components/tambo/project-dashboard";
 import { AIInsight } from "@/components/tambo/ai-insight";
@@ -200,24 +200,7 @@ export const tools: TamboTool[] = [
       error: z.string().optional(),
     }),
   },
-  {
-    name: "getAgentStatus",
-    description: "Get the current status of AI agents (Coder, QA, Architect)",
-    tool: async () => {
-      // Mock agent status for now - would connect to real agent monitoring
-      return [
-        { name: "Coder Agent", type: "coder", status: "active" },
-        { name: "QA Agent", type: "qa", status: "idle" },
-        { name: "Architect Agent", type: "architect", status: "reviewing" },
-      ];
-    },
-    inputSchema: z.object({}),
-    outputSchema: z.array(z.object({
-      name: z.string(),
-      type: z.string(),
-      status: z.string(),
-    })),
-  },
+
 ];
 
 // ============================================
@@ -231,12 +214,7 @@ export const components: TamboComponent[] = [
     propsSchema: taskCardSchema,
     component: TaskCard,
   },
-  {
-    name: "AgentStatusCard",
-    description: "Shows an AI agent's current status (Active, Idle, or Reviewing). Use for displaying agent states.",
-    propsSchema: agentStatusSchema,
-    component: AgentStatusCard,
-  },
+
   {
     name: "PhaseCard",
     description: "Displays a project phase with progress stepper and metrics. Use for roadmap views.",
