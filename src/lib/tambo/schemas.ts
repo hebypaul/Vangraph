@@ -125,3 +125,14 @@ export const boardIssueDetailSchema = z.object({
 });
 
 export type BoardIssueDetailProps = z.infer<typeof boardIssueDetailSchema>;
+
+// ============================================
+// SPEC EDITOR SCHEMAS
+// ============================================
+
+export const specEditorSchema = z.object({
+  content: z.string().describe("The draft technical specification or plan in Markdown format"),
+  status: z.enum(["draft", "approved", "rejected"]).describe("Current status of the plan"),
+});
+
+export type SpecEditorProps = z.infer<typeof specEditorSchema>;
