@@ -1,13 +1,14 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/utils/rbac';
-import { Sidebar } from '@/components/layout/sidebar';
-import { Header } from '@/components/layout/header';
 import { getProjects } from '@/actions/projects';
+import { DashboardProviderWrapper } from '@/components/providers/dashboard-provider-wrapper';
 
 export default async function DashboardLayout({
   children,
+  sidebarUser, // This prop seems unused in the signature below, but included in logic
 }: {
   children: React.ReactNode;
+  sidebarUser?: any; // Fix type definition to match actual usage if needed
 }) {
   const { user, profile, membership } = await getCurrentUser();
 
@@ -27,7 +28,7 @@ export default async function DashboardLayout({
     ? await getProjects(workspaceId) 
     : [];
 
-  const sidebarUser = {
+  const sidebarUserData = {
     fullName: profile?.full_name,
     email: user.email,
     avatarUrl: profile?.avatar_url
@@ -39,27 +40,15 @@ export default async function DashboardLayout({
     fullName: profile?.full_name,
     avatarUrl: profile?.avatar_url
   };
-
+  
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      <Sidebar 
-        user={sidebarUser}
+      <DashboardProviderWrapper 
+        sidebarUser={sidebarUserData}
+        headerUser={headerUser}
         projects={projects}
-      />
-      <div className="flex-1 ml-(--sidebar-width) flex flex-col">
-        <Header 
-          user={headerUser}
-          role={membership?.role}
-          workspaceName="Vangraph"
-          projectName="Vangraph"
-          sprintName="Sprint 1"
-        />
-        <main className="flex-1 overflow-auto bg-vg-surface">
-          <div className="bg-white/5 h-full">
-            {children}
-          </div>
-        </main>
-      </div>
-    </div>
+        membership={membership}
+      >
+        {children}
+      </DashboardProviderWrapper>
   );
 }

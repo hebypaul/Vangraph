@@ -112,4 +112,9 @@ export const sprintBoardSchema = z.object({
   })),
 });
 
-export type SprintBoard = z.infer<typeof sprintBoardSchema>;
+
+export const boardIssueDetailSchema = z.object({
+  issueId: z.string().describe("The ID of the issue to display details for, e.g. 'VA-123'"),
+});
+
+export type BoardIssueDetailProps = z.infer<typeof boardIssueDetailSchema>;

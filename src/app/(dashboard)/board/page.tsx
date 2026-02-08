@@ -31,7 +31,11 @@ import {
   Filter,
   List,
   Search,
+  Sparkles,
 } from "lucide-react";
+
+import { BoardChatSidebar } from "@/components/board/board-chat-sidebar";
+import { cn } from "@/lib/utils";
 
 // Import services
 import {
@@ -42,7 +46,6 @@ import {
   subscribeToIssues,
 } from "@/services/supabase/issues";
 
-import { ChatInput } from "@/components/layout/chat-input";
 import { SearchInput } from "@/components/atomic/input/SearchInput";
 import { Dropdown, DropdownItem, DropdownSeparator } from "@/components/atomic/overlay/Dropdown";
 import { getUserWorkspaces } from "@/actions/workspace";
@@ -79,6 +82,9 @@ export default function BoardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [activeIssue, setActiveIssue] = useState<IssueWithKey | null>(null);
+  
+  // Chat state
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Form state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -327,7 +333,7 @@ export default function BoardPage() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden relative">
       {/* Search & Filters Toolbar */}
       <div className="flex-none px-6 py-4 border-b border-border bg-card/50 backdrop-blur-sm z-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -374,6 +380,15 @@ export default function BoardPage() {
               <DropdownSeparator />
               <DropdownItem onClick={() => {}}>Clear filters</DropdownItem>
             </Dropdown>
+            
+            <Button 
+                variant={isChatOpen ? "primary" : "outline"}
+                onClick={() => setIsChatOpen(!isChatOpen)}
+                className={cn("gap-2", isChatOpen && "bg-vg-primary text-white shadow-lg shadow-vg-primary/20")}
+             >
+                <Sparkles className="w-4 h-4" />
+                <span className="hidden sm:inline">AI Assistant</span>
+             </Button>
 
             <div className="flex bg-muted p-1 rounded-lg">
               <button
@@ -460,13 +475,13 @@ export default function BoardPage() {
           )}
         </div>
 
-        {/* AI Chat / Bottom Input */}
-        <div className="p-4 bg-linear-to-t from-background via-background/80 to-transparent">
-          <ChatInput 
-            placeholder="Ask AI to manage tasks... (e.g. 'Move UI fixes to In Progress')"
-          />
-        </div>
       </div>
+
+      {/* Chat Sidebar */}
+      <BoardChatSidebar 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+      />
 
       <IssueDetailModal onSave={loadIssues} />
 

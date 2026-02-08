@@ -3,14 +3,15 @@
  * @description Central configuration for Tambo components and tools - Vangraph MVP
  */
 
+import { BoardIssueDetail } from "@/components/tambo/board-issue-detail";
 import {
   taskCardSchema,
-
   phaseCardSchema,
   projectDashboardSchema,
   aiInsightSchema,
   aiConsultantSchema,
   sprintBoardSchema,
+  boardIssueDetailSchema,
 } from "./tambo/schemas";
 import { TaskCard } from "@/components/tambo/task-card";
 
@@ -238,5 +239,11 @@ export const components: TamboComponent[] = [
     description: "Interactive AI panel that proposes actions (refining, planning, analysis). Use for autonomous suggestions.",
     propsSchema: aiConsultantSchema,
     component: AIConsultant,
+  },
+  {
+    name: "BoardIssueDetail",
+    description: "Display a button to view details for a specific issue. Use when discussing a specific task or bug.",
+    propsSchema: boardIssueDetailSchema,
+    component: BoardIssueDetail,
   },
 ];
