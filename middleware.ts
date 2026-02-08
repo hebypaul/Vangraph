@@ -11,6 +11,9 @@ const AUTH_ROUTES = ['/login', '/signup'];
 const ONBOARDING_ROUTES = ['/onboarding'];
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  console.log(`MIDDLEWARE: ${request.method} ${pathname}`);
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -43,8 +46,6 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
-
   // Check if route requires auth (handle root '/' with exact match)
   const isProtectedRoute = 
     pathname === '/' || 
@@ -59,6 +60,7 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirectTo', pathname);
+    console.log(`MIDDLEWARE: Redirecting to login from ${pathname}`);
     return NextResponse.redirect(url);
   }
 
@@ -66,6 +68,7 @@ export async function middleware(request: NextRequest) {
   if (isAuthRoute && user) {
     const url = request.nextUrl.clone();
     url.pathname = '/board';
+    console.log(`MIDDLEWARE: Redirecting to board from ${pathname} (already logged in)`);
     return NextResponse.redirect(url);
   }
 

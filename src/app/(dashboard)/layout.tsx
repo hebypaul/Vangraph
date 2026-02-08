@@ -21,32 +21,44 @@ export default async function DashboardLayout({
   }
 
   // Fetch projects for the sidebar
-  const projects = membership?.workspace_id ? await getProjects(membership.workspace_id) : [];
+  // Safety check for legacy "dummy" data during transition
+  const workspaceId = membership?.workspace_id;
+  const projects = (workspaceId && workspaceId !== 'dummy') 
+    ? await getProjects(workspaceId) 
+    : [];
+
+  const sidebarUser = {
+    fullName: profile?.full_name,
+    email: user.email,
+    avatarUrl: profile?.avatar_url
+  };
+
+  const headerUser = {
+    id: user.id,
+    email: user.email,
+    fullName: profile?.full_name,
+    avatarUrl: profile?.avatar_url
+  };
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar 
-        user={{
-          fullName: profile.full_name,
-          email: user.email,
-          avatarUrl: profile.avatar_url
-        }}
+        user={sidebarUser}
         projects={projects}
       />
-      <div className="flex-1 ml-[var(--sidebar-width)] flex flex-col">
+      <div className="flex-1 ml-(--sidebar-width) flex flex-col">
         <Header 
-          projectName="Vangraph" 
-          sprintName="Sprint 1"
-          user={{
-            id: user.id,
-            email: user.email,
-            fullName: profile.full_name,
-            avatarUrl: profile.avatar_url,
-          }}
+          user={headerUser}
           role={membership?.role}
           workspaceName="Vangraph"
+          projectName="Vangraph"
+          sprintName="Sprint 1"
         />
-        {children}
+        <main className="flex-1 overflow-auto bg-vg-surface">
+          <div className="bg-white/5 h-full">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

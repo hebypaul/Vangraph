@@ -14,23 +14,39 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setLoading(true);
     setError(null);
     
-    formData.append('redirectTo', redirectTo);
+    const formData = new FormData(event.currentTarget);
+    formData.append('redirectTo', redirectTo || '');
     
-    const result = await login(formData);
-    
-    if (result?.error) {
-      setError(result.error);
+    try {
+      console.log('Login attempt started...');
+      const result = await login(formData);
+      console.log('Login result:', result);
+      
+      if (result?.error) {
+        setError(result.error);
+        setLoading(false);
+      }
+      // If result is empty it might mean redirect was triggered but caught.
+      // Next.js actions that redirect usually don't reach here if they succeed.
+    } catch (e: any) {
+      console.error('LOGIN ERROR:', e);
+      // In Next.js, a successful redirect from a server action might be caught here as an error
+      if (e?.message?.includes('NEXT_REDIRECT')) {
+        // This is expected if redirect() is called in a try-caughter server action
+        return;
+      }
+      setError(`Failed to sign in: ${e?.message || 'Please check your connection'}`);
       setLoading(false);
     }
-    // If successful, the server action will redirect
   }
 
   return (
-    <form action={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {/* Email */}
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1.5">

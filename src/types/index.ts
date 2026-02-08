@@ -58,11 +58,29 @@ export type EntityType =
 // CORE ENTITIES
 // ============================================
 
+export interface Profile {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  onboarding_complete: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceMember {
+  workspace_id: string;
+  user_id: string;
+  role: 'owner' | 'admin' | 'manager' | 'member' | 'viewer';
+  job_title: string | null;
+  joined_at: string;
+}
+
 export interface Workspace {
   id: string;
   name: string;
   slug: string;
-  owner_id: string;
+  owner_id: string | null;
   settings: Record<string, unknown>;
   created_at: string;
   updated_at: string;

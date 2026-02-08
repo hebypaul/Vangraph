@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { completeOnboarding } from './profile';
+import type { Workspace, WorkspaceMember } from '@/types';
 
 // Validation schemas
 const createWorkspaceSchema = z.object({
@@ -19,23 +20,7 @@ export type WorkspaceActionResult = {
   workspaceId?: string;
 };
 
-export type Workspace = {
-  id: string;
-  name: string;
-  slug: string;
-  owner_id: string | null;
-  settings: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-};
-
-export type WorkspaceMember = {
-  workspace_id: string;
-  user_id: string;
-  role: 'owner' | 'admin' | 'manager' | 'member' | 'viewer';
-  job_title: string | null;
-  joined_at: string;
-};
+// Types imported from @/types
 
 /**
  * Create a new workspace and add user as owner

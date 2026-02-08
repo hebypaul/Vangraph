@@ -32,6 +32,7 @@ export type AuthActionResult = {
  * Login with email and password
  */
 export async function login(formData: FormData): Promise<AuthActionResult> {
+  console.log('--- LOGIN ACTION START ---');
   const supabase = await createClient();
 
   const rawData = {

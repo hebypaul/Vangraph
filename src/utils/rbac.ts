@@ -1,8 +1,43 @@
-import { createClient } from '@/utils/supabase/server';
-import type { Profile } from '@/actions/profile';
-import type { WorkspaceMember } from '@/actions/workspace';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import type { Profile, WorkspaceMember } from '@/types';
 
 export type UserRole = 'owner' | 'admin' | 'manager' | 'member' | 'viewer';
+
+// Local createClient to avoid circular dependency
+export async function createClient() {
+  const cookieStore = await cookies();
+  
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  if (!url || !key) {
+    console.error('RBAC: MISSING ENV VARS', { url: !!url, key: !!key });
+  }
+
+  return createServerClient(
+    url!,
+    key!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
+    }
+  );
+}
 
 // Role hierarchy for permission checks
 const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -21,6 +56,7 @@ export async function getCurrentUser(): Promise<{
   profile: Profile | null;
   membership: WorkspaceMember | null;
 }> {
+  // const { createClient } = await import('@/utils/supabase/server');
   const supabase = await createClient();
   
   const { data: { user } } = await supabase.auth.getUser();
@@ -56,6 +92,7 @@ export async function getCurrentUser(): Promise<{
  * Get user's role in a specific workspace
  */
 export async function getUserRole(workspaceId: string): Promise<UserRole | null> {
+  // const { createClient } = await import('@/utils/supabase/server');
   const supabase = await createClient();
   
   const { data: { user } } = await supabase.auth.getUser();
@@ -105,30 +142,21 @@ export async function canWrite(workspaceId: string): Promise<boolean> {
   return hasPermission(workspaceId, 'member');
 }
 
+import { 
+  getRoleDisplayName as getRoleDisplayNameClient, 
+  getRoleBadgeColor as getRoleBadgeColorClient 
+} from './rbac-client';
+
 /**
  * Get role display name
  */
 export function getRoleDisplayName(role: UserRole): string {
-  const names: Record<UserRole, string> = {
-    owner: 'Owner',
-    admin: 'Admin',
-    manager: 'Manager',
-    member: 'Member',
-    viewer: 'Viewer',
-  };
-  return names[role];
+  return getRoleDisplayNameClient(role);
 }
 
 /**
  * Get role badge color
  */
 export function getRoleBadgeColor(role: UserRole): string {
-  const colors: Record<UserRole, string> = {
-    owner: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    admin: 'bg-red-500/20 text-red-400 border-red-500/30',
-    manager: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    member: 'bg-green-500/20 text-green-400 border-green-500/30',
-    viewer: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-  };
-  return colors[role];
+  return getRoleBadgeColorClient(role);
 }

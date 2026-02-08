@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import type { Profile } from '@/types';
 
 // Validation schemas
 const updateProfileSchema = z.object({
@@ -15,15 +16,7 @@ export type ProfileActionResult = {
   success?: boolean;
 };
 
-export type Profile = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  onboarding_complete: boolean;
-  created_at: string;
-  updated_at: string;
-};
+// Profile type imported from @/types
 
 /**
  * Get current user's profile
