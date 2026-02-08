@@ -1,6 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# =====================
 # dependencies
+# =====================
 /node_modules
 /.pnp
 .pnp.*
@@ -10,45 +12,113 @@
 !.yarn/releases
 !.yarn/versions
 
+# =====================
 # testing
+# =====================
 /coverage
 
+# =====================
 # next.js
+# =====================
 /.next/
 /out/
 
+# next.js cache
+/.next/cache/
+
+# =====================
 # production
+# =====================
 /build
 
+# =====================
 # misc
+# =====================
 .DS_Store
+Thumbs.db
 *.pem
+*.log
 
+# =====================
 # debug
+# =====================
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.pnpm-store/
 
+# =====================
 # env files (can opt-in for committing if needed)
+# =====================
 .env*
+!.env.example
 
+# =====================
 # vercel
+# =====================
 .vercel
 
+# =====================
 # typescript
+# =====================
 *.tsbuildinfo
 next-env.d.ts
 
-#claude
+# =====================
+# tailwind / postcss
+# =====================
+.tailwind-cache/
+.postcss-cache/
+
+# =====================
+# eslint
+# =====================
+.eslintcache
+
+# =====================
+# editor / ide
+# =====================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+
+# =====================
+# claude
+# =====================
 .claude/
 
+# =====================
 # cursor
+# =====================
 .cursor/
 
+# =====================
 # agents
+# =====================
 .agents/
 
-#plan
+# =====================
+# plan
+# =====================
 /plan
 /plan/*
+
+# =====================
+# logs & runtime
+# =====================
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# =====================
+# OS / temp
+# =====================
+.tmp/
+temp/
+.cache/
