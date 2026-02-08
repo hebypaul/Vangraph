@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { TamboProvider } from "@tambo-ai/react";
 import { components, createTools } from "@/lib/tambo";
 import { createContextHelpers } from "@/lib/tambo/context";
@@ -24,6 +24,7 @@ export function DashboardProviderWrapper({
 }) {
   const mcpServers = useMcpServers();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const projectId = searchParams.get("projectId") || projects[0]?.id;
   
   // Find the active project object to pass its name/details to context
@@ -36,8 +37,8 @@ export function DashboardProviderWrapper({
   
   // Create dynamic context helpers
   const dynamicContextHelpers = useMemo(() => {
-    return createContextHelpers(activeProject);
-  }, [activeProject]);
+    return createContextHelpers(activeProject, pathname);
+  }, [activeProject, pathname]);
 
   return (
     <TamboProvider

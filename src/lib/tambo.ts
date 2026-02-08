@@ -4,6 +4,7 @@
  */
 
 import { BoardIssueDetail } from "@/components/tambo/board-issue-detail";
+import { SpecEditor } from "@/components/tambo/spec-editor";
 import {
   taskCardSchema,
   phaseCardSchema,
@@ -12,6 +13,7 @@ import {
   aiConsultantSchema,
   sprintBoardSchema,
   boardIssueDetailSchema,
+  specEditorSchema,
 } from "./tambo/schemas";
 import { TaskCard } from "@/components/tambo/task-card";
 
@@ -125,11 +127,18 @@ export const createTools = (projectId: string = DEFAULT_PROJECT_ID): TamboTool[]
     description: "Create a new task in the project with a title, optional description, and priority",
     tool: async (input: { title: string; description?: string; priority?: string }) => {
       try {
+        // Safe validation of priority
+        const validPriorities = ["urgent", "high", "medium", "low", "none"];
+        let priority = (input.priority || "medium").toLowerCase();
+        if (!validPriorities.includes(priority)) {
+           priority = "medium"; // Fallback safety
+        }
+
         const issue = await createIssue({
           project_id: projectId,
           title: input.title,
           description: input.description,
-          priority: (input.priority as "urgent" | "high" | "medium" | "low" | "none") || "medium",
+          priority: priority as "urgent" | "high" | "medium" | "low" | "none",
           status: "backlog",
         });
         
@@ -156,7 +165,7 @@ export const createTools = (projectId: string = DEFAULT_PROJECT_ID): TamboTool[]
     inputSchema: z.object({
       title: z.string().describe("Task title"),
       description: z.string().optional().describe("Task description"),
-      priority: z.enum(["urgent", "high", "medium", "low", "none"]).optional().describe("Task priority"),
+      priority: z.enum(["urgent", "high", "medium", "low", "none"]).optional().describe("Task priority (default: medium)"),
     }),
     outputSchema: z.object({
       id: z.string(),
@@ -272,5 +281,11 @@ export const components: TamboComponent[] = [
     description: "Display a button to view details for a specific issue. Use when discussing a specific task or bug.",
     propsSchema: boardIssueDetailSchema,
     component: BoardIssueDetail,
+  },
+  {
+    name: "SpecEditor",
+    description: "Display a Markdown implementation plan for user review. Use this BEFORE executing complex changes or batch operations. The user must approve this plan.",
+    propsSchema: specEditorSchema,
+    component: SpecEditor,
   },
 ];

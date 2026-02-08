@@ -369,3 +369,55 @@ export function subscribeToIssues(
     supabase.removeChannel(channel);
   };
 }
+
+// Helper to resolve an issue ID key (e.g. "VAN-14" or "14") to a UUID
+export async function resolveIssueId(identifier: string, projectId?: string): Promise<string | null> {
+  // 1. If it's a valid UUID, return it directly
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier)) {
+    return identifier;
+  }
+
+  // 2. Parse Number/Sequence
+  let sequenceId: number | null = null;
+  let projectKey: string | null = null;
+
+  // Check for "KEY-123" format
+  const keyMatch = identifier.match(/^([A-Z]+)-(\d+)$/i);
+  if (keyMatch) {
+    projectKey = keyMatch[1].toUpperCase();
+    sequenceId = parseInt(keyMatch[2]);
+  } else if (/^\d+$/.test(identifier)) {
+    // If just number "123"
+    sequenceId = parseInt(identifier);
+  }
+
+  if (sequenceId !== null) {
+    let targetProjectId = projectId;
+
+    // If we have a project key in the identifier (e.g. "VAN-123"), resolve the project ID from it
+    if (projectKey) {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('key', projectKey)
+        .single();
+      if (project) {
+        targetProjectId = project.id;
+      }
+    }
+
+    if (!targetProjectId) return null;
+
+    // Find issue by sequence_id and project_id
+    const { data: issue } = await supabase
+        .from('issues')
+        .select('id')
+        .eq('project_id', targetProjectId)
+        .eq('sequence_id', sequenceId)
+        .maybeSingle();
+    
+    return issue?.id || null;
+  }
+
+  return null;
+}

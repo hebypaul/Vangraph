@@ -63,12 +63,41 @@ export const userContextHelper = () => ({
   is_oncall: false,
 });
 
+// 5. Navigation Helper (Dynamic)
+export const createNavigationHelper = (project: { id: string; name: string; key?: string } | null, currentPath: string = "/board") => () => ({
+  current_view: currentPath.includes("board") ? "Kanban Board" : 
+               currentPath.includes("list") ? "List View" : 
+               currentPath.includes("roadmap") ? "Roadmap" : "Unknown",
+  active_project_id: project?.id || "none",
+  active_tab: "tasks", // Mock for now, could be dynamic
+  url_params: `projectId=${project?.id || ""}`,
+});
+
+// 6. Schema Constraints Helper (Static but vital)
+export const schemaConstraintsHelper = () => ({
+  issue_status: {
+    backlog: "Backlog",
+    todo: "To Do",
+    in_progress: "In Progress",
+    in_review: "In Review",
+    done: "Done",
+    cancelled: "Cancelled"
+  },
+  issue_priority: ["urgent", "high", "medium", "low", "none"],
+  phases: ["Planning", "Design", "Development", "Testing", "Deployment"],
+});
+
 // Factory for all helpers
-export const createContextHelpers = (project: { id: string; name: string; key?: string } | null) => ({
+export const createContextHelpers = (
+  project: { id: string; name: string; key?: string } | null,
+  currentPath: string = "/board" // Default path if not provided
+) => ({
   current_time: currentTimeHelper,
   active_workspace: activeWorkspaceHelper,
   active_project: createActiveProjectHelper(project),
   user_context: userContextHelper,
+  navigation: createNavigationHelper(project, currentPath),
+  schema_constraints: schemaConstraintsHelper,
 });
 
 // Legacy export for backward compatibility (if used elsewhere)
@@ -77,4 +106,6 @@ export const contextHelpers = {
   active_workspace: activeWorkspaceHelper,
   active_project: async () => ({ id: "default", name: "Default Project" }), // Placeholder
   user_context: userContextHelper,
+  navigation: () => ({ current_view: "Unknown", active_project_id: "default" }),
+  schema_constraints: schemaConstraintsHelper,
 };
