@@ -1,269 +1,344 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/atomic/feedback/Progress";
-import { Dropdown, DropdownItem } from "@/components/atomic/overlay/Dropdown";
-import {
-  BarChart3,
-  TrendingUp,
-  TrendingDown,
-  CheckCircle2,
-  Clock,
-  Users,
-  Zap,
-  Calendar,
-  ArrowUpRight,
+import { useState, useEffect } from "react";
+import { 
+  BarChart3, 
+  TrendingUp, 
+  Users, 
+  Calendar, 
+  ArrowUpRight, 
   ArrowDownRight,
+  Filter,
+  Download,
+  MoreHorizontal,
+  Activity,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Target
 } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
+} from "recharts";
 
-// Mock analytics data
-const weeklyStats = {
-  tasksCompleted: 42,
-  tasksCompletedChange: 12,
-  velocity: 38,
-  velocityChange: -5,
-  teamEfficiency: 87,
-  teamEfficiencyChange: 3,
-  sprintProgress: 65,
-};
+import { Button } from "@/components/atomic/button/Button";
+import { StatsCard } from "@/components/dashboard/StatsCard";
+import { Select } from "@/components/atomic/input/Select";
+import { Skeleton } from "@/components/atomic/feedback/Skeleton";
+import { getUserWorkspaces } from "@/actions/workspace";
+import { getProjects } from "@/actions/projects";
+import { getProjectAnalytics, type AnalyticsData } from "@/actions/analytics";
+import type { Project } from "@/types";
 
-const tasksByStatus = [
-  { status: "Completed", count: 42, color: "bg-vg-success" },
-  { status: "In Progress", count: 18, color: "bg-vg-warning" },
-  { status: "Backlog", count: 24, color: "bg-muted-foreground" },
-  { status: "Blocked", count: 3, color: "bg-vg-danger" },
-];
-
-const weeklyProgress = [
-  { day: "Mon", tasks: 8, points: 12 },
-  { day: "Tue", tasks: 6, points: 8 },
-  { day: "Wed", tasks: 10, points: 14 },
-  { day: "Thu", tasks: 7, points: 10 },
-  { day: "Fri", tasks: 11, points: 16 },
-];
-
-const teamPerformance = [
-  { name: "John D.", completed: 12, avatar: "JD" },
-  { name: "Alice R.", completed: 10, avatar: "AR" },
-  { name: "Bob S.", completed: 8, avatar: "BS" },
-  { name: "Carol M.", completed: 6, avatar: "CM" },
-];
-
-
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 export default function AnalyticsPage() {
-  const maxTasks = Math.max(...weeklyProgress.map((d) => d.tasks));
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load Projects
+  useEffect(() => {
+    async function loadProjects() {
+      try {
+        setLoading(true);
+        const workspaces = await getUserWorkspaces();
+        if (workspaces.length > 0) {
+          const workspaceId = workspaces[0].id;
+          const projectData = await getProjects(workspaceId);
+          setProjects(projectData);
+          if (projectData.length > 0) {
+            setSelectedProjectId(projectData[0].id);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load projects:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadProjects();
+  }, []);
+
+  // Load Analytics Data
+  useEffect(() => {
+    async function loadAnalytics() {
+      if (!selectedProjectId) return;
+      try {
+        setLoading(true);
+        const data = await getProjectAnalytics(selectedProjectId);
+        setAnalyticsData(data);
+      } catch (error) {
+        console.error("Failed to load analytics:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadAnalytics();
+  }, [selectedProjectId]);
 
   return (
     <main className="flex-1 p-8 overflow-auto">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Page Header */}
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <BarChart3 className="w-6 h-6 text-vg-primary" />
               Analytics
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mt-1">
               Project insights and performance metrics
             </p>
           </div>
-          <Dropdown
-            trigger={
-              <button className="vg-btn vg-btn-outline">
-                <Calendar className="w-4 h-4" />
-                This Week
-              </button>
-            }
-          >
-            <DropdownItem onClick={() => {}}>Today</DropdownItem>
-            <DropdownItem onClick={() => {}}>This Week</DropdownItem>
-            <DropdownItem onClick={() => {}}>This Month</DropdownItem>
-            <DropdownItem onClick={() => {}}>This Quarter</DropdownItem>
-          </Dropdown>
+          <div className="flex items-center gap-3">
+            {projects.length > 0 && (
+              <Select 
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                options={projects.map(p => ({ value: p.id, label: p.name }))}
+                className="w-[200px]"
+              />
+            )}
+            <Button variant="outline">
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          </div>
         </div>
 
-        {/* Key Metrics */}
-        <section className="grid grid-cols-4 gap-4">
-          <div className="vg-card">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground">Tasks Completed</span>
-              <CheckCircle2 className="w-4 h-4 text-vg-success" />
-            </div>
-            <div className="flex items-end gap-2">
-              <span className="text-3xl font-bold text-foreground">
-                {weeklyStats.tasksCompleted}
-              </span>
-              <span
-                className={`text-xs flex items-center gap-0.5 ${
-                  weeklyStats.tasksCompletedChange >= 0
-                    ? "text-vg-success"
-                    : "text-vg-danger"
-                }`}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-32 w-full rouded-xl" />
+            ))}
+          </div>
+        ) : !analyticsData ? (
+          <div className="text-center py-12 bg-vg-surface/50 rounded-xl border border-dashed border-border">
+            <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-foreground">No data available</h3>
+            <p className="text-muted-foreground">
+              Select an active project to view analytics
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatsCard
+                title="Total Issues"
+                icon={<Target className="w-4 h-4 text-vg-primary" />}
+                trend={{ value: 12, isPositive: true }}
               >
-                {weeklyStats.tasksCompletedChange >= 0 ? (
-                  <ArrowUpRight className="w-3 h-3" />
-                ) : (
-                  <ArrowDownRight className="w-3 h-3" />
-                )}
-                {Math.abs(weeklyStats.tasksCompletedChange)}%
-              </span>
-            </div>
-          </div>
-
-          <div className="vg-card">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground">Velocity</span>
-              <Zap className="w-4 h-4 text-vg-primary" />
-            </div>
-            <div className="flex items-end gap-2">
-              <span className="text-3xl font-bold text-foreground">
-                {weeklyStats.velocity}
-              </span>
-              <span className="text-xs text-muted-foreground">pts</span>
-              <span
-                className={`text-xs flex items-center gap-0.5 ${
-                  weeklyStats.velocityChange >= 0
-                    ? "text-vg-success"
-                    : "text-vg-danger"
-                }`}
-              >
-                {weeklyStats.velocityChange >= 0 ? (
-                  <ArrowUpRight className="w-3 h-3" />
-                ) : (
-                  <ArrowDownRight className="w-3 h-3" />
-                )}
-                {Math.abs(weeklyStats.velocityChange)}%
-              </span>
-            </div>
-          </div>
-
-          <div className="vg-card">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground">Team Efficiency</span>
-              <Users className="w-4 h-4 text-vg-purple" />
-            </div>
-            <div className="flex items-end gap-2">
-              <span className="text-3xl font-bold text-foreground">
-                {weeklyStats.teamEfficiency}%
-              </span>
-              <span
-                className={`text-xs flex items-center gap-0.5 ${
-                  weeklyStats.teamEfficiencyChange >= 0
-                    ? "text-vg-success"
-                    : "text-vg-danger"
-                }`}
-              >
-                {weeklyStats.teamEfficiencyChange >= 0 ? (
-                  <ArrowUpRight className="w-3 h-3" />
-                ) : (
-                  <ArrowDownRight className="w-3 h-3" />
-                )}
-                {Math.abs(weeklyStats.teamEfficiencyChange)}%
-              </span>
-            </div>
-          </div>
-
-          <div className="vg-card">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground">Sprint Progress</span>
-              <Clock className="w-4 h-4 text-vg-warning" />
-            </div>
-            <div className="flex items-end gap-2 mb-2">
-              <span className="text-3xl font-bold text-foreground">
-                {weeklyStats.sprintProgress}%
-              </span>
-            </div>
-            <Progress value={weeklyStats.sprintProgress} variant="rainbow" size="sm" />
-          </div>
-        </section>
-
-        <div className="grid grid-cols-3 gap-6">
-          {/* Weekly Progress Chart */}
-          <section className="col-span-2 vg-card">
-            <h2 className="text-lg font-bold text-foreground mb-4">
-              Weekly Progress
-            </h2>
-            <div className="flex items-end gap-3 h-40">
-              {weeklyProgress.map((day) => (
-                <div key={day.day} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full flex flex-col gap-1">
-                    <div
-                      className="w-full bg-gradient-to-t from-vg-primary to-vg-purple rounded-t transition-all"
-                      style={{ height: `${(day.tasks / maxTasks) * 100}px` }}
-                    />
-                  </div>
-                  <span className="text-xs text-muted-foreground">{day.day}</span>
-                  <span className="text-xs font-bold text-foreground">
-                    {day.tasks}
-                  </span>
+                <div className="text-2xl font-bold text-foreground">
+                  {analyticsData.total_issues}
                 </div>
-              ))}
-            </div>
-          </section>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Active in current project
+                </p>
+              </StatsCard>
+              
+              <StatsCard
+                title="Completion Rate"
+                icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                trend={{ value: 5, isPositive: true }}
+              >
+                <div className="text-2xl font-bold text-foreground">
+                  {analyticsData.total_issues > 0 
+                    ? Math.round((analyticsData.completed_total / analyticsData.total_issues) * 100) 
+                    : 0}%
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {analyticsData.completed_total} issues completed
+                </p>
+              </StatsCard>
 
-          {/* Tasks by Status */}
-          <section className="vg-card">
-            <h2 className="text-lg font-bold text-foreground mb-4">
-              Tasks by Status
-            </h2>
-            <div className="space-y-3">
-              {tasksByStatus.map((item) => (
-                <div key={item.status} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{item.status}</span>
-                    <span className="font-bold text-foreground">{item.count}</span>
-                  </div>
-                  <div className="h-2 bg-vg-surface rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${item.color} rounded-full transition-all`}
-                      style={{
-                        width: `${(item.count / 87) * 100}%`,
-                      }}
-                    />
+              <StatsCard
+                title="Velocity"
+                icon={<Activity className="w-4 h-4 text-blue-500" />}
+              >
+                <div className="text-2xl font-bold text-foreground">
+                  {analyticsData.velocity_history.length > 0 
+                    ? Math.round(analyticsData.velocity_history.reduce((a, b) => a + b.points, 0) / analyticsData.velocity_history.length) 
+                    : 0}
+                  <span className="text-sm font-normal text-muted-foreground ml-1">pts</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Average per sprint
+                </p>
+              </StatsCard>
+
+              <StatsCard
+                title="Active Sprint"
+                icon={<Clock className="w-4 h-4 text-amber-500" />}
+              >
+                <div className="text-lg font-bold text-foreground truncate">
+                  {analyticsData.active_sprint_name || "None"}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Current cycle
+                </p>
+              </StatsCard>
+            </div>
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Velocity Chart */}
+              <div className="vg-card col-span-1 lg:col-span-2">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground">Sprint Velocity</h3>
+                    <p className="text-sm text-muted-foreground">Points completed over last 5 sprints</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6">
-          {/* Team Performance */}
-          <section className="vg-card">
-            <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-vg-primary" />
-              Team Performance
-            </h2>
-            <div className="space-y-3">
-              {teamPerformance.map((member, idx) => (
-                <div
-                  key={member.name}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-vg-surface transition-colors"
-                >
-                  <span className="text-sm text-muted-foreground w-4">
-                    {idx + 1}
-                  </span>
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-vg-primary to-vg-purple flex items-center justify-center text-white text-xs font-bold">
-                    {member.avatar}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {member.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {member.completed} tasks completed
-                    </p>
-                  </div>
-                  <Badge variant="success">{member.completed}</Badge>
+                <div className="h-[300px] w-full">
+                  {analyticsData.velocity_history.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analyticsData.velocity_history}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                        <XAxis 
+                          dataKey="name" 
+                          stroke="var(--muted-foreground)" 
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis 
+                          stroke="var(--muted-foreground)" 
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'var(--background)',
+                            borderColor: 'var(--border)',
+                            borderRadius: '0.5rem',
+                          }}
+                          cursor={{ fill: 'var(--muted)/0.2' }}
+                        />
+                        <Bar 
+                          dataKey="points" 
+                          fill="var(--primary)" 
+                          radius={[4, 4, 0, 0]}
+                          maxBarSize={50}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      No velocity data available yet
+                    </div>
+                  )}
                 </div>
-              ))}
+              </div>
+
+              {/* Issue Distribution */}
+              <div className="vg-card">
+                <h3 className="text-lg font-bold text-foreground mb-6">Issue Status Distribution</h3>
+                <div className="h-[300px] w-full">
+                  {analyticsData.issue_distribution.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={analyticsData.issue_distribution}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {analyticsData.issue_distribution.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'var(--background)',
+                            borderColor: 'var(--border)',
+                            borderRadius: '0.5rem',
+                          }}
+                        />
+                        <Legend verticalAlign="bottom" height={36} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      No issues to display
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Recent Activity */}
+              <div className="vg-card">
+                <h3 className="text-lg font-bold text-foreground mb-6">Activity (Last 14 Days)</h3>
+                <div className="h-[300px] w-full">
+                  {analyticsData.recent_activity.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={analyticsData.recent_activity}>
+                        <defs>
+                          <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#8884d8" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#82ca9d" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <XAxis 
+                          dataKey="date" 
+                          stroke="var(--muted-foreground)" 
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis 
+                          stroke="var(--muted-foreground)" 
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'var(--background)',
+                            borderColor: 'var(--border)',
+                            borderRadius: '0.5rem',
+                          }}
+                        />
+                        <Area type="monotone" dataKey="created" stroke="#8884d8" fillOpacity={1} fill="url(#colorCreated)" />
+                        <Area type="monotone" dataKey="completed" stroke="#82ca9d" fillOpacity={1} fill="url(#colorCompleted)" />
+                        <Legend verticalAlign="top" height={36} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      No recent activity
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </section>
-
-          {/* AI Insights */}
-
-        </div>
+          </>
+        )}
       </div>
     </main>
   );

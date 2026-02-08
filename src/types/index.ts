@@ -88,6 +88,7 @@ export interface Sprint {
   start_date?: string;
   end_date?: string;
   velocity_target?: number;
+  goal?: string;
   status: SprintStatus;
   created_at: string;
   updated_at: string;

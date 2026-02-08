@@ -7,7 +7,6 @@ import { Tooltip } from "@/components/atomic/overlay/Tooltip";
 import {
   LayoutDashboard,
   Kanban,
-
   MessageSquare,
   FolderKanban,
   CalendarDays,
@@ -17,8 +16,13 @@ import {
   ChevronLeft,
   ChevronRight,
   HelpCircle,
+  ChevronDown,
+  Plus,
+  MoreHorizontal
 } from "lucide-react";
 import { useState } from "react";
+import { Skeleton } from "@/components/atomic/feedback/Skeleton";
+import type { Project } from "@/types";
 
 interface SidebarUser {
   fullName?: string | null;
@@ -29,6 +33,7 @@ interface SidebarUser {
 interface SidebarProps {
   className?: string;
   user?: SidebarUser;
+  projects?: Project[];
 }
 
 const navItems = [
@@ -38,12 +43,7 @@ const navItems = [
     label: "Dashboard",
     description: "Overview & stats"
   },
-  { 
-    href: "/projects", 
-    icon: FolderKanban, 
-    label: "Projects",
-    description: "Manage projects"
-  },
+  // Projects handled separately
   { 
     href: "/board", 
     icon: Kanban, 
@@ -86,9 +86,10 @@ const systemItems = [
   },
 ];
 
-export function Sidebar({ className, user }: SidebarProps) {
+export function Sidebar({ className, user, projects = [] }: SidebarProps) {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isProjectsExpanded, setIsProjectsExpanded] = useState(true);
   
   // Get user display name and initials
   const displayName = user?.fullName || user?.email?.split('@')[0] || 'User';
@@ -98,6 +99,8 @@ export function Sidebar({ className, user }: SidebarProps) {
     .join('')
     .toUpperCase()
     .slice(0, 2);
+
+  const displayProjects = projects.slice(0, 2);
 
   return (
     <aside 
@@ -148,31 +151,19 @@ export function Sidebar({ className, user }: SidebarProps) {
                   "flex items-center gap-3 h-10 px-3 rounded-xl transition-all duration-200 group relative",
                   isActive 
                     ? "bg-vg-primary/15 text-vg-primary" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-vg-surface"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                {/* Active indicator */}
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-vg-primary rounded-r-full" />
-                )}
-                
-                <item.icon className={cn(
-                  "w-5 h-5 shrink-0 transition-transform duration-200",
-                  isActive && "scale-110"
-                )} />
-                
-                <div className={cn(
-                  "flex flex-col min-w-0 transition-opacity duration-200",
-                  isExpanded ? "opacity-100" : "opacity-0"
+                <item.icon className={cn("w-5 h-5 shrink-0", isActive && "text-vg-primary")} />
+                <span className={cn(
+                  "font-medium whitespace-nowrap transition-all duration-200 origin-left",
+                  isExpanded ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2 w-0 overflow-hidden"
                 )}>
-                  <span className="text-sm font-medium truncate">
-                    {item.label}
-                  </span>
-                </div>
+                  {item.label}
+                </span>
               </Link>
             );
 
-            // Only show tooltip when collapsed
             if (!isExpanded) {
               return (
                 <Tooltip key={item.href} content={item.label} side="right">
@@ -183,6 +174,69 @@ export function Sidebar({ className, user }: SidebarProps) {
             
             return NavItem;
           })}
+
+          {/* Projects Section */}
+          <div className="mt-2">
+            <button
+              onClick={() => setIsProjectsExpanded(!isProjectsExpanded)}
+              className={cn(
+                "w-full flex items-center justify-between gap-3 h-10 px-3 rounded-xl transition-all duration-200 group relative text-muted-foreground hover:bg-muted hover:text-foreground",
+                pathname.startsWith("/projects") && "text-foreground"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <FolderKanban className="w-5 h-5 shrink-0" />
+                <span className={cn(
+                  "font-medium whitespace-nowrap transition-all duration-200 origin-left",
+                  isExpanded ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2 w-0 overflow-hidden"
+                )}>
+                  Projects
+                </span>
+              </div>
+              {isExpanded && (
+                <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", !isProjectsExpanded && "-rotate-90")} />
+              )}
+            </button>
+
+            {/* Projects Submenu */}
+            <div className={cn(
+               "overflow-hidden transition-all duration-300 ease-in-out",
+               isProjectsExpanded && isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+            )}>
+              <div className="pl-4 mt-1 space-y-1 border-l border-border ml-5 my-1">
+                {displayProjects.map(project => (
+                  <Link
+                    key={project.id}
+                    href={`/board?project=${project.id}`}
+                    className={cn(
+                      "flex items-center gap-2 h-8 px-3 rounded-lg text-sm transition-colors",
+                      pathname === `/projects/${project.id}` 
+                        ? "bg-vg-primary/10 text-vg-primary" 
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    )}
+                  >
+                    <span className="truncate">{project.name}</span>
+                  </Link>
+                ))}
+                
+                <Link
+                   href="/projects"
+                   className="flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                >
+                  <MoreHorizontal className="w-3 h-3" />
+                  <span>View All Projects</span>
+                </Link>
+
+                <Link
+                   href="/projects" 
+                   className="flex items-center gap-2 h-8 px-3 rounded-lg text-xs font-medium text-vg-primary hover:bg-vg-primary/10"
+                >
+                   <Plus className="w-3 h-3" />
+                   <span>Create Project</span>
+                </Link>
+              </div>
+            </div>
+          </div>
         </nav>
       </div>
 

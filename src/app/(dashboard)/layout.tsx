@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/utils/rbac';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
+import { getProjects } from '@/actions/projects';
 
 export default async function DashboardLayout({
   children,
@@ -19,6 +20,9 @@ export default async function DashboardLayout({
     redirect('/onboarding/profile');
   }
 
+  // Fetch projects for the sidebar
+  const projects = membership?.workspace_id ? await getProjects(membership.workspace_id) : [];
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar 
@@ -26,7 +30,8 @@ export default async function DashboardLayout({
           fullName: profile.full_name,
           email: user.email,
           avatarUrl: profile.avatar_url
-        }} 
+        }}
+        projects={projects}
       />
       <div className="flex-1 ml-[var(--sidebar-width)] flex flex-col">
         <Header 
